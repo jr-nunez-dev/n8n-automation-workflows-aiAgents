@@ -1,758 +1,329 @@
-\# AI Global Order Processing \& Compliance Workflow
+# Multi-Agent AI Personal Assistant
 
+A modular multi-agent AI assistant built with **n8n** that uses an orchestrator architecture to intelligently route user requests to specialized AI agents. Each agent is responsible for a specific domain—Email, Research, Web Scraping, Calendar Management, Note Taking, and Google Drive Operations—allowing the assistant to perform complex productivity tasks while maintaining a clear separation of responsibilities.
 
+The workflow demonstrates how multiple AI agents can collaborate under a central orchestrator, enabling scalable, maintainable, and enterprise-ready AI automation.
 
-An enterprise-grade n8n workflow that automates global order processing by validating incoming webhook requests, enriching customer and fraud intelligence, calculating taxes and regulatory requirements, routing shipments based on geographic destination, writing finalized orders into an ERP database, and performing post-processing validation before confirming successful order creation.
+---
 
-
-
-\---
-
-
-
-\## Quick Facts
-
-
+## Quick Facts
 
 | Item | Value |
-
 |------|------|
+| **Workflow Type** | Multi-Agent AI Automation |
+| **Primary Purpose** | AI Productivity Assistant |
+| **Architecture** | Orchestrator + Specialized Agents |
+| **Trigger** | Telegram Bot |
+| **AI Pattern** | Multi-Agent System |
+| **Memory** | Persistent AI Memory |
+| **Reasoning** | Think Tool |
+| **Programming** | n8n AI Agents |
+| **Integrations** | Gmail, Google Calendar, Google Drive, Google Sheets, Google Search, Google Maps, Google News, YouTube |
+| **Communication Platform** | Telegram |
+| **Development Mode** | Fully Modular Multi-Agent Architecture |
 
-| \*\*Workflow Type\*\* | Enterprise Order Processing Automation |
+---
 
-| \*\*Primary Purpose\*\* | Intelligent Order Validation, Compliance \& ERP Integration |
+# 1. Overview
 
-| \*\*Trigger\*\* | Webhook (Mock Payload) |
+Modern AI assistants often become difficult to maintain because every capability is placed inside a single AI agent. As the number of available tools grows, the model becomes increasingly complex, slower to reason, and harder to scale.
 
-| \*\*Workflow Pattern\*\* | Parallel Processing + Geographic Routing |
+This workflow solves that problem by implementing a **Multi-Agent Architecture**.
 
-| \*\*Programming\*\* | JavaScript (Code Nodes) |
+Instead of giving one AI access to every available tool, a central **Orchestrator Agent** receives user requests from Telegram, understands the user's intent, and delegates the task to the most appropriate specialized agent.
 
-| \*\*Integrations\*\* | ERP Database, VAT Engine, Fraud API, Enrichment API |
+Each specialized agent has a dedicated responsibility:
 
-| \*\*Compliance Regions\*\* | EU, UK, US, APAC |
+- Email Management
+- Research
+- Web Scraping
+- Calendar Management
+- Note Management
+- Google Drive Management
 
-| \*\*Customer Types\*\* | B2B • B2C |
+Because every agent focuses on only one domain, prompts remain smaller, reasoning becomes more accurate, and the system can easily grow by adding additional agents without redesigning the entire workflow.
 
-| \*\*Output\*\* | ERP Database Record |
-
-| \*\*Development Mode\*\* | Uses simulated webhook payloads and mock APIs |
-
-
-
-\---
-
-
-
-\# 1. Overview
-
-
-
-Processing international customer orders involves far more than simply recording a purchase. Modern businesses must validate incoming requests, distinguish between business and consumer customers, perform fraud analysis, enrich customer information, calculate taxes, verify regional compliance requirements, and finally synchronize completed orders with enterprise resource planning (ERP) systems.
-
-
-
-This workflow automates the complete order fulfillment preparation pipeline.
-
-
-
-It begins by simulating an incoming webhook containing a customer order. The order payload is unpacked and analyzed to determine whether the customer is a Business-to-Business (B2B) or Business-to-Consumer (B2C) transaction.
-
-
-
-Depending on the customer type, the workflow executes different enrichment processes. Corporate customers receive business intelligence and company metadata, while consumer orders undergo fraud risk evaluation before both branches are recombined into a standardized processing stream.
-
-
-
-The workflow then performs advanced tax validation and routes each order according to its destination region. Regional compliance rules—including VAT, customs regulations, and import duties—are applied automatically before the completed order is written into the ERP database.
-
-
-
-Finally, a post-processing validation step confirms that the ERP transaction completed successfully before returning either a success confirmation or an operational error message.
-
-
+The orchestrator also maintains conversational memory and reasoning capabilities, allowing it to determine which agent should execute a task before returning a final response back to the user via Telegram.
 
 ```
-
-Webhook
-
-&#x20;   │
-
-&#x20;   ▼
-
-Receive Order
-
-&#x20;   │
-
-&#x20;   ▼
-
-Extract Payload
-
-&#x20;   │
-
-&#x20;   ▼
-
-Determine Customer Type
-
-&#x20;     ├──────────────┐
-
-&#x20;     │              │
-
-&#x20;     ▼              ▼
-
-&#x20;B2B Enrichment   B2C Fraud Check
-
-&#x20;     │              │
-
-Corporate Data  Fraud Analysis
-
-&#x20;     └───────Merge────────┐
-
-&#x20;                          ▼
-
-&#x20;            Tax \& Compliance Engine
-
-&#x20;                          │
-
-&#x20;                          ▼
-
-&#x20;            Geographic Fulfillment Router
-
-&#x20;            ┌────────┼────────┐
-
-&#x20;            ▼        ▼        ▼
-
-&#x20;         EU/UK      APAC      US
-
-&#x20;            │        │        │
-
-&#x20;            └────────Merge────────┐
-
-&#x20;                                  ▼
-
-&#x20;                         ERP Database
-
-&#x20;                                  │
-
-&#x20;                                  ▼
-
-&#x20;                         Transaction Validation
-
-&#x20;                          ├──────────────┐
-
-&#x20;                          ▼              ▼
-
-&#x20;                     Success        Error Handler
-
+Telegram
+    │
+    ▼
+Receive Message
+    │
+    ▼
+Preprocess Request
+    │
+    ▼
+        Orchestrator
+             │
+     ┌───────┼────────┬────────┬────────┬─────────┐
+     ▼       ▼        ▼        ▼        ▼         ▼
+ Email   Research  Scraper  Calendar  Notes   Drive
+ Agent     Agent     Agent     Agent    Agent    Agent
+     │       │        │        │        │         │
+     └─────────────── Results ─────────────────────┘
+                     │
+                     ▼
+              Telegram Response
 ```
 
+---
 
+# 2. What Problem Does It Solve?
 
-\---
+Traditional AI assistants often rely on a single model that has access to every available tool. As more capabilities are added, prompt complexity increases, response quality decreases, and maintaining the system becomes increasingly difficult.
 
+This workflow separates responsibilities into specialized AI agents coordinated by a central orchestrator.
 
+Instead of one agent deciding how to perform every task, each specialist focuses on its own expertise while the orchestrator determines which agent should handle the user's request.
 
-\# 2. What Problem Does It Solve?
+This architecture provides better scalability, easier maintenance, improved reasoning accuracy, and allows new capabilities to be added without affecting existing agents.
 
+---
 
+# 3. Benefits
 
-Global order fulfillment is significantly more complex than domestic order processing. Every order may require different tax rules, compliance checks, fraud analysis, and regional shipping requirements depending on the customer's location and business type.
+- Modular AI architecture
+- Easier maintenance and scalability
+- Faster reasoning through specialized prompts
+- Better task delegation
+- Reduced prompt complexity
+- Persistent conversational memory
+- Centralized orchestration
+- Easy integration of new AI agents
+- Enterprise-ready architecture
+- Clean separation of responsibilities
 
+---
 
+# 4. Who Will Use It?
 
-Without automation, operations teams often perform many of these tasks manually or rely on disconnected systems, increasing processing time and introducing opportunities for costly compliance mistakes.
-
-
-
-This workflow centralizes the entire pre-ERP processing pipeline into a single automated solution.
-
-
-
-It validates incoming orders, enriches customer information, applies business rules, calculates regional taxes, verifies regulatory compliance, routes fulfillment based on destination, and synchronizes finalized transactions into an ERP system—all without manual intervention.
-
-
-
-\---
-
-
-
-\# 3. Benefits
-
-
-
-\- Automates complex international order processing.
-
-\- Separates B2B and B2C business logic automatically.
-
-\- Improves customer data quality through enrichment.
-
-\- Performs fraud validation before order acceptance.
-
-\- Standardizes tax calculations across multiple regions.
-
-\- Reduces compliance risks for international shipments.
-
-\- Eliminates manual routing decisions.
-
-\- Produces consistent ERP-ready order records.
-
-\- Simplifies enterprise integration with downstream systems.
-
-\- Improves scalability for high-volume global commerce.
-
-
-
-\---
-
-
-
-\# 4. Who Will Use It?
-
-
-
-This workflow is designed for organizations handling international commerce and enterprise logistics.
-
-
+This workflow is ideal for users who need a centralized AI assistant capable of managing multiple productivity tasks.
 
 Typical users include:
 
+- Knowledge Workers
+- Software Engineers
+- Project Managers
+- Researchers
+- Business Owners
+- Executive Assistants
+- Students
+- Operations Teams
+- Productivity Enthusiasts
 
+---
 
-\- eCommerce Operations Teams
+# 5. Workflow Breakdown
 
-\- Supply Chain Teams
+## `TG Message` — Telegram Trigger
 
-\- ERP Administrators
+Serves as the entry point of the workflow.
 
-\- Finance Teams
+Whenever a user sends a message to the Telegram bot, the workflow is automatically triggered and the message is forwarded into the orchestration pipeline.
 
-\- Compliance Officers
+---
 
-\- Logistics Teams
+## `Get Message`
 
-\- Order Management Teams
+Extracts and normalizes the Telegram payload.
 
-\- Enterprise Integration Engineers
+This node prepares the incoming message so the orchestrator receives a consistent request structure regardless of Telegram's raw webhook format.
 
-\- Digital Transformation Teams
+---
 
+# Central AI Layer
 
+## `Orchestrator`
 
-\---
+The Orchestrator is the brain of the entire workflow.
 
+Its responsibilities include:
 
+- Understanding user intent
+- Selecting the appropriate specialist
+- Maintaining conversation flow
+- Delegating tasks
+- Combining tool outputs
+- Returning the final response
 
-\# 5. Workflow Breakdown
+Unlike traditional AI assistants that directly execute every task, the orchestrator functions as an intelligent dispatcher responsible for coordinating all available agents.
 
+---
 
+## `Orchestrator Brain`
 
-\## `When clicking "Execute workflow"` — Manual Trigger
+Provides the Large Language Model responsible for the orchestrator's reasoning and decision-making.
 
+The model determines which specialized agent should receive the user's request.
 
+---
 
-Starts the workflow during development.
+## `Memory`
 
+Stores conversational context between interactions.
 
+This enables follow-up questions without requiring the user to repeat previous information.
 
-In production this node would typically be replaced by an HTTP Webhook receiving orders from:
+Example:
 
+> User:
+> "Show tomorrow's meetings."
 
+Later:
 
-\- Shopify
+> "Move the first one to Friday."
 
-\- Magento
+The assistant remembers which meeting is being referenced.
 
-\- WooCommerce
+---
 
-\- SAP Commerce
+## `Think`
 
-\- Salesforce Commerce Cloud
+Provides additional reasoning capabilities before delegation.
 
-\- Custom APIs
+Rather than immediately selecting an agent, the orchestrator can analyze complex requests, decompose multiple tasks, and determine the optimal execution strategy.
 
+---
 
+# Email Agent
 
-\---
+Responsible for all Gmail-related operations.
 
+Its available tools include:
 
+- Send Email
+- Get Email
+- Search Email
+- Reply to Email
+- Delete Email
+- Label Email
+- Read Contacts
 
-\## `Simulate Webhook Payload` — Code
+The Email Agent isolates all email functionality from the rest of the assistant, keeping prompts focused and reducing unnecessary tool selection.
 
+---
 
+# Research Agent
 
-Generates a realistic customer order payload.
+Handles internet research and information gathering.
 
+Available tools include:
 
+- Google Search
+- Google Maps
+- Google News
+- YouTube Search
 
-Example information includes:
+This agent specializes in collecting publicly available information rather than performing productivity tasks.
 
+---
 
+# Scraper Agent
 
-\- Customer Information
+Responsible for extracting content from websites.
 
-\- Order Details
+Its primary tool performs webpage scraping, allowing the assistant to summarize articles, retrieve structured information, or collect webpage content for further analysis.
 
-\- Destination Country
+Keeping scraping isolated prevents unrelated agents from handling web extraction tasks.
 
-\- Customer Type
+---
 
-\- Product Information
+# Calendar Agent
 
-\- Shipping Data
+Handles scheduling and calendar management.
 
+Supported operations include:
 
+- Create Event
+- Update Event
+- Delete Event
+- Get Event
+- Search Events
 
-This allows the workflow to be demonstrated without exposing production systems.
+This agent acts as the user's scheduling assistant while remaining completely independent from email and note management.
 
+---
 
+# Notes Agent
 
-\---
+Responsible for personal note management using Google Sheets.
 
+Available capabilities include:
 
+- Save Note
+- Search Note
+- Update Note
+- Delete Note
 
-\## `Unpack Global Payload` — Split Out
+Using Google Sheets provides a lightweight cloud-based knowledge repository that can easily be expanded or replaced by dedicated databases.
 
+---
 
+# Drive Agent
 
-Extracts the incoming webhook into structured order data.
+Handles Google Drive file management.
 
+Supported operations include:
 
+- Search Files
+- Download Files
+- Upload Files
+- Move Files
+- Share Files
+- Delete Files
 
-The payload is normalized before entering downstream processing.
+This allows the assistant to function as a lightweight document management system capable of organizing and retrieving files on behalf of the user.
 
+---
 
+## `Response`
 
-\---
+After the selected agent completes its task, the orchestrator generates a natural language response and sends the final answer back to the user through Telegram.
 
+This ensures users interact with a single AI assistant despite multiple specialized agents working behind the scenes.
 
+---
 
-\## `Route by Customer Type` — Switch
-
-
-
-Determines whether the incoming order belongs to:
-
-
-
-\- Business Customer (B2B)
-
-\- Consumer Customer (B2C)
-
-
-
-Each customer type follows its own processing pipeline.
-
-
-
-\---
-
-
-
-\# B2B Processing Sub-workflow
-
-
-
-\## `B2B Corporate Enrichment API` — HTTP Request
-
-
-
-Retrieves corporate information about the purchasing organization.
-
-
-
-Typical enrichment includes:
-
-
-
-\- Company Registration
-
-\- Industry
-
-\- Employee Count
-
-\- Annual Revenue
-
-\- VAT Number
-
-\- Business Classification
-
-
-
-\---
-
-
-
-\## `Map Corporate Metadata` — Set
-
-
-
-Normalizes the enrichment response into a standardized internal format used throughout the workflow.
-
-
-
-\---
-
-
-
-\# B2C Processing Sub-workflow
-
-
-
-\## `B2C Fraud \& Risk API` — HTTP Request
-
-
-
-Evaluates consumer orders for potential fraud.
-
-
-
-Checks may include:
-
-
-
-\- Risk Score
-
-\- Device Reputation
-
-\- Payment Risk
-
-\- Geolocation
-
-\- Velocity Checks
-
-\- Behavioral Indicators
-
-
-
-\---
-
-
-
-\## `Map Fraud Telemetry` — Set
-
-
-
-Transforms fraud API results into a simplified internal structure for downstream decision-making.
-
-
-
-\---
-
-
-
-\## `Recombine B2B \& B2C Streams` — Merge
-
-
-
-Combines both processing branches into a unified order format.
-
-
-
-From this point onward, every order follows the same enterprise fulfillment pipeline.
-
-
-
-\---
-
-
-
-\## `Advanced Tax \& Compliance Engine` — Code
-
-
-
-Calculates applicable taxes and validates regulatory requirements.
-
-
-
-Typical responsibilities include:
-
-
-
-\- VAT Validation
-
-\- GST Calculation
-
-\- Sales Tax Rules
-
-\- Business Tax Exemptions
-
-\- Cross-border Tax Logic
-
-
-
-This node prepares the order for geographic compliance processing.
-
-
-
-\---
-
-
-
-\## `Geographic Fulfillment Routing` — Switch
-
-
-
-Routes orders according to destination region.
-
-
-
-Possible destinations include:
-
-
-
-\- European Union
-
-\- Asia-Pacific
-
-\- United States
-
-
-
-Each region has unique compliance requirements.
-
-
-
-\---
-
-
-
-\# Regional Compliance Branches
-
-
-
-\## `EU VAT \& GDPR Compliance`
-
-
-
-Applies European regulations including:
-
-
-
-\- VAT Validation
-
-\- GDPR Requirements
-
-\- Digital Goods Rules
-
-\- OSS/IOSS Compliance
-
-
-
-\---
-
-
-
-\## `APAC Duty Calculator`
-
-
-
-Calculates:
-
-
-
-\- Import Duties
-
-\- Regional Taxes
-
-\- Customs Charges
-
-\- Shipping Requirements
-
-
-
-for Asia-Pacific destinations.
-
-
-
-\---
-
-
-
-\## `US Customs Compliance`
-
-
-
-Applies United States import regulations including:
-
-
-
-\- Customs Validation
-
-\- Import Rules
-
-\- State Tax Considerations
-
-\- Regulatory Requirements
-
-
-
-\---
-
-
-
-\## `Recombine Geographic Streams` — Merge
-
-
-
-Combines all regional compliance branches into a standardized ERP-ready order.
-
-
-
-\---
-
-
-
-\## `Combine Back Into Single Array`
-
-
-
-Converts the merged order stream into a single payload suitable for database insertion.
-
-
-
-\---
-
-
-
-\## `ERP / Warehouse Database Write` — HTTP Request
-
-
-
-Synchronizes the completed order into the ERP system.
-
-
-
-In production this node could integrate with:
-
-
-
-\- SAP
-
-\- Oracle ERP
-
-\- Microsoft Dynamics
-
-\- NetSuite
-
-\- Odoo
-
-\- Custom Warehouse Systems
-
-
-
-\---
-
-
-
-\## `Check Writing Errors` — Switch
-
-
-
-Verifies whether the ERP transaction completed successfully.
-
-
-
-If the write operation succeeds, the workflow proceeds normally.
-
-
-
-Otherwise, the workflow enters an operational error path.
-
-
-
-\---
-
-
-
-\## `Success Message`
-
-
-
-Returns a confirmation indicating that the order has been successfully processed and stored.
-
-
-
-\---
-
-
-
-\## `Error Message`
-
-
-
-Returns an operational failure message for monitoring, retries, or administrative review.
-
-
-
-\---
-
-
-
-\# Setup Requirements
-
-
+# Setup Requirements
 
 | Service | Used For | Credential Needed |
-
 |----------|----------|------------------|
+| Telegram Bot API | User Interface | Telegram Bot Token |
+| Google Gmail API | Email Operations | OAuth2 |
+| Google Calendar API | Calendar Management | OAuth2 |
+| Google Drive API | File Management | OAuth2 |
+| Google Sheets API | Notes Database | OAuth2 |
+| Google Search API | Internet Search | API Key |
+| Google Maps API | Location Search | API Key |
+| Google News API | News Retrieval | API Key |
+| YouTube Data API | Video Search | API Key |
+| LLM Provider | Orchestration & Agent Reasoning | API Key |
 
-| ERP API | Order Synchronization | API Token |
+---
 
-| Corporate Enrichment API | B2B Company Data | API Key |
+# Known Limitations / Next Steps
 
-| Fraud Detection API | Consumer Risk Analysis | API Key |
+- The current architecture routes requests to a single specialist at a time. Future versions could support parallel multi-agent collaboration for complex tasks.
+- Long-term memory is currently limited and could be enhanced using a vector database such as Pinecone, Qdrant, or Chroma.
+- Additional security layers should be added before allowing destructive operations such as deleting files or emails.
+- Agent execution history is not currently logged for auditing and debugging purposes.
+- Human approval checkpoints could be introduced for sensitive operations like sending emails or deleting documents.
 
-| Tax \& VAT Service | Tax Calculation | API Key |
+---
 
-| Customs/Duty API | Regional Compliance | API Key |
+# Future Improvements
 
-
-
-\---
-
-
-
-\# Known Limitations / Next Steps
-
-
-
-\- The workflow currently uses simulated webhook payloads instead of live eCommerce platforms.
-
-\- Corporate enrichment and fraud detection APIs are mocked and should be connected to production providers.
-
-\- Regional compliance logic demonstrates workflow architecture and should be extended with country-specific regulations.
-
-\- ERP integration currently represents a generic HTTP endpoint and should be adapted to the organization's ERP platform.
-
-\- Advanced retry handling, dead-letter queues, and centralized logging should be implemented for production workloads.
-
-
-
-\---
-
-
-
-\# Future Improvements
-
-
-
-\- Multi-currency conversion
-
-\- Real-time shipping rate calculation
-
-\- AI-powered fraud prediction
-
-\- Inventory availability validation
-
-\- Warehouse selection optimization
-
-\- Carrier API integration
-
-\- Automatic invoice generation
-
-\- Customer notification emails
-
-\- Order tracking synchronization
-
-\- Business intelligence dashboards
-
+- Add Finance Agent
+- Add Coding Agent
+- Add Database Agent
+- Add Travel Planning Agent
+- Add HR Agent
+- Multi-Agent Collaboration
+- Vector Memory Integration
+- Voice Assistant Support
+- Image Understanding Agent
+- Workflow Monitoring Dashboard
+- Automatic Agent Performance Metrics
+- Self-improving Agent Selection
