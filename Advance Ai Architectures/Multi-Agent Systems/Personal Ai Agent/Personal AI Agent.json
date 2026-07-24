@@ -1,0 +1,1755 @@
+{
+  "name": "aiAgentSwarmBot (cleaned)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are the Orchestrator of a multi-agent assistant swarm. You do not perform tasks yourself — you delegate to specialized sub-agents, each exposed to you as a tool. Your job is to understand the user's request, decide which agent(s) can fulfill it, call them in the right order, and return one clear, consolidated response.\n\nYou have access to these tools:\n- think — internal reasoning scratchpad. ALWAYS use this first, before calling any other agent.\n- Email Agent — handles all email actions (send, read, reply, delete, label, contacts lookup)\n- Research Agent — handles web search, maps, news, and YouTube search\n- Scraper Agent — fetches and reads the full content of a specific webpage URL\n- Calendar Agent — handles all calendar/event actions (create, read, update, delete)\n- Notes Agent — saves, retrieves, and searches personal notes/memories the user wants kept\n- Drive Agent — searches, reads, downloads, updates, moves, shares, and deletes files in Google Drive\n\nRULES:\n1. ALWAYS call `Think` first, before calling any other agent — even for requests that seem simple. State: what the user wants, which agent(s) are needed, and in what order. This is a required first step, not optional.\n2. Never guess at information an agent should provide (an email address, search result, calendar event, note content, or file). Always delegate to the correct agent.\n3. If a request needs multiple agents (e.g. \"find that article I saved a note about and email it to John\"), call them in logical sequence and combine their outputs into a single final answer.\n4. If a request is genuinely unclear (missing a name, date, recipient, or which note/file), ask the user a clarifying question instead of guessing.\n5. Keep your final response concise and conversational — you are replying inside a Telegram chat. Do not expose internal tool names, reasoning steps, or raw JSON to the user.\n6. If a sub-agent returns an error or cannot complete a task, explain plainly what went wrong and suggest a next step — don't fail silently.\n7. Only call the tools you actually need. Don't call Research Agent for something the user already gave you directly (e.g. a pasted URL — send that straight to Scraper Agent).\n8. When the user says something like \"remember this\" or \"save a note,\" route to Notes Agent, not Calendar (unless it has a specific date/time, which makes it an event) and not Drive (which is for files, not text notes).\n9. When the user refers to a file, document, spreadsheet, or something they \"uploaded\" or \"saved,\" route to Drive Agent. When they refer to an idea, fact, or note, route to Notes Agent.\n10. Drive Agent actions that share or delete a file are irreversible or expose data to another person — if the user's intent seems even slightly ambiguous (e.g. \"share the budget file\" with no recipient specified, or \"delete that file\" with no clear referent), ask for clarification yourself before delegating, rather than letting Drive Agent guess.\n\nNOTE: Today's date and time is {{ $now.format('yyyy-MM-dd hh:mm a') }}."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -144,
+        -656
+      ],
+      "id": "35a0bf86-b508-434f-8fac-2a5756c09e1c",
+      "name": "Orchestrator"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -944,
+        -512
+      ],
+      "id": "e17cf21e-1873-4c93-a218-0465ff1b3961",
+      "name": "Orchestrator Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "You are an expert Email agent and these are your tools to use.\n\nSend Email\nDescription: Sends a new email. Requires a resolved recipient email address (use Contacts tool first if only a name was given), subject, and body.\n\nGet Email\nDescription: Retrieves a single specific email by ID. Use when you already know which exact email is needed.\n\nGet Many Email\nDescription: Retrieves a list of emails matching search criteria (sender, subject, date range, unread status). Use this to find an email before replying to or deleting it.\n\nReply to Email\nDescription: Replies to an existing email thread, preserving context. Requires the original email/thread ID.\n\nDelete Email\nDescription: Permanently deletes a specific email by ID. Only call after confirming the correct email via Get Email or Get Many Email.\n\nLabel an Email\nDescription: Applies one or more labels/tags to a specific email by ID.\n\nContacts\nDescription: Searches a Google Sheet of saved contacts by name to retrieve their email address. Always use this FIRST when the user refers to someone by name only, before Send or Reply.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "You are the Email Agent. You handle all email-related actions on behalf of the user: sending, retrieving, replying to, deleting, and labeling emails.\n\nRULES:\n1. If the user's request includes a recipient name but NOT an email address, use the Contacts tool FIRST to look up their email address before attempting to send or reply. Never guess or fabricate an email address.\n2. If the Contacts lookup returns no match or multiple ambiguous matches, stop and report back that you need clarification — do not send to a guessed address.\n3. Before deleting an email, confirm you have the correct email identified (via Get Email or Get Many Email) — never delete based on assumption alone.\n4. When replying, preserve the original thread context — use the Reply to Email tool (not Send) so it stays threaded.\n5. Keep sent email tone professional and concise unless the user specifies otherwise.\n6. Return a clear confirmation of what action was taken (e.g. \"Email sent to [name] at [address]\") back to the Orchestrator — don't just say \"done.\"\n\nNOTE: Always sign outgoing emails as \"Johnrex\" — never sign as \"AI\", \"Email Agent\", \"Assistant\", or any placeholder. End emails with:\n   \n   Best regards,\n   Johnrex"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        -1488,
+        -176
+      ],
+      "id": "b2c18701-d97b-4ee3-a1c6-0b37dfe5f4de",
+      "name": "Email Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1744,
+        0
+      ],
+      "id": "218f3a57-228b-4857-945c-855c79c02693",
+      "name": "Email Agent Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('To', ``, 'string') }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "emailType": "text",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1600,
+        0
+      ],
+      "id": "572305b0-83ad-414e-857c-337bda2aeb47",
+      "name": "Send Email",
+      "webhookId": "6e82c841-51f8-424c-b248-facf2920a19e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CRED_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}",
+        "simple": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Simplify', ``, 'boolean') }}",
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1472,
+        0
+      ],
+      "id": "97459148-f3de-4c10-9a24-26b1da135c55",
+      "name": "Get Email",
+      "webhookId": "8bd9d61d-da4b-4146-87ea-25ada6283ad2",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CRED_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Limit', ``, 'number') }}",
+        "simple": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Simplify', ``, 'boolean') }}",
+        "filters": {},
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1344,
+        0
+      ],
+      "id": "1440a6ea-9782-46c1-9424-f956e602e124",
+      "name": "Get many Email",
+      "webhookId": "bf3b7ea7-72d6-4225-bcb0-b63c33653b77",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CRED_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -592,
+        -720
+      ],
+      "id": "0e4170a1-6040-471d-a02b-77e46d781c79",
+      "name": "TG Message",
+      "webhookId": "dd4dbdfb-b7c6-46b8-9ba0-91a890f45bff",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fa5f9a7e-0cf1-4c6a-9742-6c3f952e5a2f",
+              "name": "chatInput",
+              "value": "={{ $json.message }}",
+              "type": "object"
+            },
+            {
+              "id": "ad2a30bb-6345-496a-ad00-662f31941b1f",
+              "name": "update_id",
+              "value": "={{ $json.update_id }}",
+              "type": "number"
+            },
+            {
+              "id": "8691a4c3-4e54-43d2-8b6e-05d705dfd146",
+              "name": "message.message_id",
+              "value": "={{ $json.message.message_id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -416,
+        -720
+      ],
+      "id": "2365a750-ee35-456f-9ec8-c95a0f9e2972",
+      "name": "Get Message"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Get Message').item.json.chatInput.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        288,
+        -720
+      ],
+      "id": "c14d3078-ea74-4cee-a788-54078e6ff397",
+      "name": "Response",
+      "webhookId": "1a0173f8-adff-4d18-ac48-356bea87ce18",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CRED_ID",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}",
+        "emailType": "text",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1216,
+        0
+      ],
+      "id": "60d13ed7-3f45-464d-8521-7d733d911ed3",
+      "name": "Reply to Email",
+      "webhookId": "e72c11e0-063a-48a2-ac9d-7a322ccd90b5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CRED_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1536,
+        160
+      ],
+      "id": "0ce1480e-f2d2-4f4a-a291-52829cbc65e7",
+      "name": "Delete Email",
+      "webhookId": "3b78a1f3-9546-4e92-b24c-c1e019b371dc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CRED_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message_ID', ``, 'string') }}",
+        "labelIds": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Label_Names_or_IDs', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [
+        -1408,
+        160
+      ],
+      "id": "cccb6850-0095-4742-9374-bd6350d91f96",
+      "name": "Label an Email",
+      "webhookId": "5481749d-a3c0-4299-afd9-dbf5606c6bad",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CRED_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_CONTACTS_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Contact Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_CONTACTS_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_CONTACTS_SHEET_ID/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1280,
+        160
+      ],
+      "id": "1465449d-931c-459a-b3a9-46701306d9fb",
+      "name": "Contacts",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CRED_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('TG Message').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -816,
+        -512
+      ],
+      "id": "7215fcaa-116a-4cb1-b319-c873cd14cec3",
+      "name": "Memory"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        -16
+      ],
+      "id": "595d7a40-1a43-4a53-a402-9dfb62774aab",
+      "name": "Calendar Agent Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "You are a great Event Handler and these are your tools to use.\n\nCreate Event\nDescription: Creates a new calendar event. Requires title, date, and start/end time at minimum. Do not call until all required fields are confirmed.\n\nGet an Event\nDescription: Retrieves a single specific event by ID.\n\nGet many Events\nDescription: Retrieves a list of events matching criteria (date range, keyword). Use this to find an event before updating or deleting it.\n\nUpdate Event\nDescription: Modifies an existing event's details. Requires the event ID — obtained via Get Event or Get many Events first.\n\nDelete Event\nDescription: Permanently deletes a specific event by ID. Only call after confirming the correct event via Get Event or Get many Events.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=You are the Calendar Agent. You manage the user's calendar: creating, reading, updating, and deleting events.\n\nRULES:\n1. Before creating an event, confirm you have all required details: title, date, start/end time (or duration), and any attendees/location if mentioned. If any critical detail is missing, report back to the Orchestrator that clarification is needed rather than guessing a time or date.\n2. Before updating or deleting an event, use Get Event or Get Many Events FIRST to confirm you have the correct event ID — never update/delete based on a guessed match.\n3. Always confirm timezone assumptions are reasonable; if the user's timezone isn't clear from context, don't silently assume — flag it.\n4. Return a clear, human-readable confirmation of the action taken (e.g. \"Created 'Team Sync' on July 20 at 3:00 PM\") rather than raw event JSON.\n5. Always base on Philippine time {{ $now.format('MM-dd-yyyy hh:mm a') }}\n6. If the user doesn't provide an event description, generate a short, sensible one yourself based on the event title and any context in the message. Don't leave the description blank, and don't ask the user for it unless the event title itself is too vague to infer anything from."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        16,
+        -176
+      ],
+      "id": "b55bc19d-7c6d-40a7-95b2-511322019743",
+      "name": "Calendar Agent"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_EMAIL@gmail.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_EMAIL@gmail.com"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "useDefaultReminders": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Use_Default_Reminders', ``, 'boolean') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', `The event description. If the user explicitly provided details (location, notes, purpose), use those. If the user did NOT provide any description, write a brief, sensible one yourself based on the event title and context (e.g. for \"Dinner Date\" you might write \"Dinner with [person] \" or just \"Dinner date.\" if no other context exists). Never leave this blank.`, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', `The event title, extracted directly from the user's message (e.g. \"Dinner Date\"). Required — never leave blank.`, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        128
+      ],
+      "id": "28ca3d56-e7ca-4375-b4d7-7f1a2ab6f744",
+      "name": "Create Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CRED_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_EMAIL@gmail.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_EMAIL@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        16,
+        -16
+      ],
+      "id": "cdbf7818-f937-4ab8-b57b-e6ab2258f40f",
+      "name": "Delete Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CRED_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_EMAIL@gmail.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_EMAIL@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "useDefaultReminders": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Use_Default_Reminders', ``, 'boolean') }}",
+        "updateFields": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        -16
+      ],
+      "id": "6f902fd1-3bc6-4446-b9bf-6e1221c6dc01",
+      "name": "Update Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CRED_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_EMAIL@gmail.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_EMAIL@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        16,
+        128
+      ],
+      "id": "0a1d2ef0-3db7-4823-a6a8-6bf5b8a9329e",
+      "name": "Get an Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CRED_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_EMAIL@gmail.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_EMAIL@gmail.com"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        -16
+      ],
+      "id": "43c1185d-7e6e-490f-b7bd-a808af0873b7",
+      "name": "Get many Events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CRED_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "You are an expert researcher and these are your tools to use.\n\nGoogle Search\nDescription: General-purpose web search via SerpAPI. Use for factual questions, comparisons, or anything not specifically a place, news event, or video.\n\nGoogle Map\nDescription: Searches for places, businesses, addresses, or location-based info via SerpAPI. Use when the query involves \"near me,\" a specific business, or directions/location context.\n\nGoogle News\nDescription: Searches recent news articles via SerpAPI. Use when the user asks about current events, recent happenings, or anything time-sensitive.\n\nSearch Youtube\nDescription: Searches YouTube for videos matching a query and returns titles, video IDs, and links. Use when the user wants a video, tutorial, or explicitly asks for YouTube content.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "You are the Research Agent. You find current, real-world information using web search, maps, news, and YouTube search. You do not have access to email or calendar — only research tools.\n\nRULES:\n1. Use Google Search for general queries, Google Map for location/place/business queries, Google News for current events or recent news, and Search Youtube specifically when the user wants video content or a video link.\n2. If a search returns a promising URL that needs full-page content (not just a snippet), do NOT try to read it yourself — report the URL back to the Orchestrator so it can route it to the Scraper Agent.\n3. Cross-check results when something looks time-sensitive or uncertain — don't return a single result as fact if it conflicts with common sense.\n4. Summarize findings clearly and cite the source (page title or outlet name) rather than just dumping raw search results."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        -864,
+        -176
+      ],
+      "id": "524b40d0-2b6f-4362-9ce9-077bde284891",
+      "name": "Researcher Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1024,
+        0
+      ],
+      "id": "2b03d2cb-7ddb-461b-8271-8e59bb6f2047",
+      "name": "Researcher Agent Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "q": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query__q_', ``, 'string') }}",
+        "location": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Location__location_', ``, 'string') }}",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApiTool",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        0
+      ],
+      "id": "269c5c77-e938-4047-a2d4-adcf2624e2e4",
+      "name": "Google Search",
+      "credentials": {
+        "serpApi": {
+          "id": "YOUR_SERPAPI_CRED_ID",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "google_maps",
+        "q": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query__q_', ``, 'string') }}",
+        "ll": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('GPS_Coordinates__ll_', ``, 'string') }}",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApiTool",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        0
+      ],
+      "id": "8ba556d9-d981-4318-92e5-3ec5f92e04e6",
+      "name": "Google Map",
+      "credentials": {
+        "serpApi": {
+          "id": "YOUR_SERPAPI_CRED_ID",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "google_news",
+        "q": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query__q_', ``, 'string') }}",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApiTool",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        0
+      ],
+      "id": "0b0d4a66-73a3-4202-a107-9a9cbacf5c28",
+      "name": "Google News",
+      "credentials": {
+        "serpApi": {
+          "id": "YOUR_SERPAPI_CRED_ID",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "You are an excellent scraper agent these are the tools you will use.\n\nScrape Webpage\nDescription: Fetches the full text content of a given webpage URL and returns it in clean, readable form. Requires a valid, complete URL. Use this to read beyond what a search snippet shows.\n",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "You are the Scraper Agent. Your only job is to fetch and read the full content of a specific webpage when given a URL, and return a clean, accurate summary or extraction of that content.\n\nRULES:\n1. You require an actual URL to function. If you're only given a vague description with no URL, report back to the Orchestrator that a URL is needed — do not guess a URL.\n2. If the page fails to load or returns an error, report that plainly rather than fabricating content.\n3. When returning content, extract only what's relevant to the original request (e.g. a specific fact, price, or section) — keep responses concise, not a full page dump, unless the full content was explicitly requested."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        -448,
+        -176
+      ],
+      "id": "c0c118af-082a-4447-89b4-0833f978449f",
+      "name": "Scraper Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        16
+      ],
+      "id": "9a15e0bc-def8-40ca-afab-dda03a0a2906",
+      "name": "Scraper Agent Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetches and returns the clean text content of a webpage given its URL. Use this after a web search to read the full content of a promising result.",
+        "url": "=https://r.jina.ai/{{ $fromAI(\"url\", \"The URL to scrape\") }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -272,
+        16
+      ],
+      "id": "f39fdf66-79fc-4957-be72-4bbf1118612c",
+      "name": "Scrape Webpage"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "returnAll": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Return_All', ``, 'boolean') }}",
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.youTubeTool",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        144
+      ],
+      "id": "d03cd5f2-633a-4d62-adc4-28b6701360e1",
+      "name": "Search Youtube",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "YOUR_YOUTUBE_CRED_ID",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Use this tool to reason step-by-step BEFORE calling any other agent. Write out: (1) what the user is actually asking for, (2) which agent(s) are needed and why, (3) what order to call them in, (4) what information you still need from the user, if any. This tool does not perform any action or return external data — it only helps you plan. Always use it for multi-step or ambiguous requests before delegating."
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        -704,
+        -512
+      ],
+      "id": "cbe2f59e-9baf-4fda-9e8d-a61ac92640af",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "toolDescription": "You are an expert note taker use all the tools you have to carry your tasks.\n\nSave Note\nDescription: Appends a new note entry. This sheet is auto-populated from the Telegram conversation, so this tool is rarely called directly — most \"notes\" are already captured automatically. Only use this if the user explicitly asks to save something that isn't already part of the natural chat log.\n\nSearch Notes\nDescription: Searches the note log by keyword, matching against the Prompt__User_Message_ column (the readable user text). There is no date or tag filtering available — search is text-based only.\n\nUpdate Note\nDescription: Modifies the Prompt__User_Message_ content of an existing row. Requires the update_id — obtained via Search Notes first. Never guess which row to update.\n\nDelete Note\nDescription: Removes a row from the note log. Requires the update_id — obtained via Search Notes first.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "You are the Notes Agent. You help the user save, retrieve, and search short personal notes, ideas, or reminders that aren't tied to a specific email, event, or file — things they want to remember later.\n\nRULES:\n1. When saving a note, always include the current date and the note content. If the user's message implies a category or topic (e.g. \"note about the RAG project\"), add a relevant tag so it's easier to search later.\n2. This note log has no date or tag columns — search and reference notes by their text content only (Prompt__User_Message_ column).\n3. Before updating or deleting, use Search Notes first to confirm the correct update_id — never guess a row.\n4. If asked to update or delete a note, use Search Notes first to confirm you have the correct one before modifying it.\n5. Keep note content close to what the user actually said — don't editorialize or summarize away specific details unless asked to.\n6. If the user's note actually has a date/time attached (e.g. \"remind me to call mom Friday at 5\"), tell the Orchestrator this should probably go to Calendar Agent instead — don't save it as a plain note."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        560,
+        -176
+      ],
+      "id": "6c34c33c-1b54-4f44-9afc-d9885dff6f06",
+      "name": "Notes Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -16
+      ],
+      "id": "66ada55b-9102-49a1-bb9c-f705d5000160",
+      "name": "Notes Agent Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_NOTES_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Notes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "chatInput",
+              "displayName": "chatInput",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "update_id",
+              "displayName": "update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Prompt__User_Message_",
+              "displayName": "Prompt__User_Message_",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "toolCallId",
+              "displayName": "toolCallId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        576,
+        -16
+      ],
+      "id": "a0946621-ee06-4cd5-aaef-40598621f980",
+      "name": "Save Note",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CRED_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_NOTES_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Notes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        -16
+      ],
+      "id": "d1de0d12-15ee-4b5d-84c2-4b253bc3530c",
+      "name": "Search Note",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CRED_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_NOTES_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Notes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "toolCallId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('toolCallId', ``, 'string') }}",
+            "Prompt__User_Message_": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+            "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('message', ``, 'string') }}",
+            "chatInput": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('chatInput', ``, 'string') }}",
+            "update_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('update_id__using_to_match_', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "update_id"
+          ],
+          "schema": [
+            {
+              "id": "chatInput",
+              "displayName": "chatInput",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "update_id",
+              "displayName": "update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Prompt__User_Message_",
+              "displayName": "Prompt__User_Message_",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "toolCallId",
+              "displayName": "toolCallId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        -16
+      ],
+      "id": "92e46c4b-c076-4df1-9b02-b16cbd8da6d0",
+      "name": "Update Note",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CRED_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_NOTES_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Notes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_NOTES_SHEET_ID/edit#gid=0"
+        },
+        "startIndex": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start_Row_Number', ``, 'number') }}",
+        "numberToDelete": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Number_of_Rows_to_Delete', ``, 'number') }}"
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        912,
+        -16
+      ],
+      "id": "8f4f3d3a-b195-4c06-8727-ebd053682197",
+      "name": "Delete Note",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CRED_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "You are an expert Google Drive Manager that manages files, folder, etc. Use your tools to carry on your tasks\n\nSearch Files and Folders\nDescription: Searches Google Drive by file or folder name/keyword. Returns matches with file ID, name, type, and last modified date. Always use this first — every other Drive tool requires a file ID that must come from here.\n\nDownload File\nDescription: Retrieves and returns the readable content of a specific file. Requires a file ID from Search Files and Folders. Use when the user wants to know what's in a file, or wants it summarized. Native Google Docs/Sheets may need export handling — if the content returned isn't readable text, report that rather than guessing at contents.\n\nUpdate File\nDescription: Modifies a file's content or metadata. Requires a file ID from Search Files and Folders. Confirm exactly what is being changed before calling.\n\nMove File\nDescription: Moves a file to a different folder. Requires a file ID from Search Files and Folders and a destination folder. Confirm both before calling.\n\nShare File\nDescription: Grants another person access to a file. Requires a file ID from Search Files and Folders, the recipient's email address, and a permission level (view/comment/edit). If only given a name (no email), do not guess an address — ask the user for the email or flag to the Orchestrator that it needs resolving.\n\nDelete File\nDescription: Permanently deletes a file (or moves it to trash, depending on configuration). Requires a file ID from Search Files and Folders. Destructive and hard to undo — confirm the correct file and clear user intent before calling.",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "You are the Drive Agent. You help the user find, read, download, update, move, share, and delete files in their Google Drive.\n\nRULES:\n1. Always use Search Files and Folders FIRST before any other action — never guess a file ID. This applies to every other tool you have; all of them require a file ID that must come from a search result.\n2. If a search returns multiple matching files, list the top few (name + last modified date) and ask the user to confirm which one they mean before taking any action on it — especially before Update, Move, Share, or Delete.\n3. Download File is for reading a file's content (e.g. to summarize it or answer a question about it). Keep your extraction focused on what was actually asked — don't dump an entire document back unless explicitly requested. Note: native Google Docs/Sheets/Slides may need to be exported to a readable format rather than downloaded raw — if content comes back unreadable/binary, say so rather than fabricating a summary.\n4. Update File changes a file's content or metadata — confirm exactly what's being changed and on which file before calling it.\n5. Move File relocates a file to a different folder — confirm both the correct file and the correct destination folder before acting.\n6. Share File grants access to another person — ALWAYS confirm the exact file, the person's email, and the permission level (view/comment/edit) with high confidence before calling this. If the user only gave a name and not an email, check with Email Agent's contact resolution logic isn't available to you directly — ask the user for the email directly, or flag to the Orchestrator that a contact lookup is needed first.\n7. Delete File is destructive and cannot be undone by you. Always confirm via Search first, and if there's any ambiguity about which file or whether the user really wants it deleted, ask before proceeding.\n8. Never take action on a file you have not first confirmed via search — this applies even if the user seems very specific, since names can collide (e.g. two files both named \"Budget\").\n9. If a tool call fails with a technical/system error (not a \"no results found\" type message), do not keep retrying with slightly different parameters. Report the failure back to the Orchestrator after one retry at most."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 3,
+      "position": [
+        1216,
+        -192
+      ],
+      "id": "290b9b0c-3d26-4dd0-b642-71d1d0801536",
+      "name": "Drive Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        -16
+      ],
+      "id": "13da5bbf-43a8-4ad4-bed5-353df90d0d5b",
+      "name": "Drive Agent Brain",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CRED_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query', `The search term to find a file or folder by name or keyword. Use the exact name, file type (e.g. \"xlsx\", \"invoice\"), or topic the user mentioned. For broader queries like \"how many X files,\" extract the relevant keyword (e.g. file extension or type) rather than passing the full sentence.`, 'string') }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {
+          "fields": [
+            "*"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1216,
+        -16
+      ],
+      "id": "1f2c125c-a3dc-42af-b84f-bf091bcd6cd0",
+      "name": "Search Files and Folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CRED_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('File', `The Google Drive file ID of the file to read. Must come from a prior Search Files result — never guess this.`, 'string') }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1344,
+        -16
+      ],
+      "id": "21717790-83cd-4837-9f12-e42617f3ef37",
+      "name": "Download File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CRED_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('File_to_Update', `File ID field: The file ID to move/rename — must come from Search Files first, never guessed.\n   Destination field: The target folder ID or new file name, based on what the user explicitly requested.`, 'string') }}",
+          "mode": "id"
+        },
+        "newUpdatedFileName": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('New_Updated_File_Name', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1456,
+        -16
+      ],
+      "id": "ce86486d-36da-4a71-92d8-f3593e838d33",
+      "name": "Update File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CRED_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('File_to_Update', `File ID field: The file ID to move/rename — must come from Search Files first, never guessed.\n   Destination field: The target folder ID or new file name, based on what the user explicitly requested.`, 'string') }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        }
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1568,
+        -16
+      ],
+      "id": "07b3b4c3-2eae-4229-ad6a-c41880a2c1c8",
+      "name": "Move File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CRED_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "auto",
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('File', ``, 'string') }}",
+          "mode": "id"
+        },
+        "permissionsUi": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1216,
+        144
+      ],
+      "id": "8e945016-b243-4318-be72-0d8ccce07ff9",
+      "name": "Share File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CRED_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "deleteFile",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('File', ``, 'string') }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTool",
+      "typeVersion": 3,
+      "position": [
+        1344,
+        144
+      ],
+      "id": "14b14104-0125-4b1c-aed6-ba5c8423e9e3",
+      "name": "Delete File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CRED_ID",
+          "name": "Google Drive account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Orchestrator Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Agent Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Email": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many Email": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TG Message": {
+      "main": [
+        [
+          {
+            "node": "Get Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Message": {
+      "main": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to Email": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Email": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Label an Email": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contacts": {
+      "ai_tool": [
+        [
+          {
+            "node": "Email Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar Agent Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Calendar Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Event": {
+      "ai_tool": [
+        [
+          {
+            "node": "Calendar Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Event": {
+      "ai_tool": [
+        [
+          {
+            "node": "Calendar Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Event": {
+      "ai_tool": [
+        [
+          {
+            "node": "Calendar Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get an Event": {
+      "ai_tool": [
+        [
+          {
+            "node": "Calendar Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many Events": {
+      "ai_tool": [
+        [
+          {
+            "node": "Calendar Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Researcher Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Researcher Agent Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Researcher Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Researcher Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Map": {
+      "ai_tool": [
+        [
+          {
+            "node": "Researcher Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google News": {
+      "ai_tool": [
+        [
+          {
+            "node": "Researcher Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scraper Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scraper Agent Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Scraper Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Webpage": {
+      "ai_tool": [
+        [
+          {
+            "node": "Scraper Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Youtube": {
+      "ai_tool": [
+        [
+          {
+            "node": "Researcher Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notes Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notes Agent Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Notes Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Note": {
+      "ai_tool": [
+        [
+          {
+            "node": "Notes Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Note": {
+      "ai_tool": [
+        [
+          {
+            "node": "Notes Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Note": {
+      "ai_tool": [
+        [
+          {
+            "node": "Notes Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Note": {
+      "ai_tool": [
+        [
+          {
+            "node": "Notes Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "Orchestrator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Agent Brain": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Files and Folders": {
+      "ai_tool": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download File": {
+      "ai_tool": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update File": {
+      "ai_tool": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move File": {
+      "ai_tool": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share File": {
+      "ai_tool": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete File": {
+      "ai_tool": [
+        [
+          {
+            "node": "Drive Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "98c23517-ef0d-4487-970c-dd9bd5abc4c7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a6e0c81e4fb59b429c00e146454cbad9c9647be357aed7cbe1314bb7130321d6"
+  },
+  "nodeGroups": [],
+  "id": "BGXT4pETfSNEpzHo",
+  "tags": [
+    {
+      "name": "Cleaned",
+      "id": "v0sazVZq8Erji85b",
+      "updatedAt": "2026-07-16T08:26:37.775Z",
+      "createdAt": "2026-07-16T08:26:37.775Z"
+    }
+  ]
+}
