@@ -1,0 +1,1061 @@
+{
+  "name": "AI Customer Support Triage & Auto-Reply Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "maxResults": 1,
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -176,
+        -112
+      ],
+      "id": "151cbc7e-a3d5-4309-915f-e20a8cd40224",
+      "name": "Poll Emails",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=New support email received:\n\nFrom: {{ $json['Sender Email'] }}\nSubject: {{ $json.Subject }}\n\nMessage: {{ $json.Body }}\n",
+        "options": {
+          "systemMessage": "You are a customer support triage agent for  G.O.A.T Company's support inbox. \nFor every incoming email, you must:\n\n1. Read the customer's message carefully, using conversation memory for context if this is part of an ongoing thread.\n2. Classify the email into exactly one category:\n   - \"billing\" \u2013 payments, refunds, invoices, subscription changes\n   - \"technical\" \u2013 product bugs, how-to questions, setup issues\n   - \"general\" \u2013 anything else legitimate (feedback, general inquiries)\n   - \"urgent\" \u2013 anger, threats to cancel, legal/safety issues, or explicit urgency\n   - \"spam\" \u2013 promotional, irrelevant, or clearly automated junk mail\n\n3. Use your available tools before answering:\n   - Use the knowledge base tool to check policies, FAQs, and documented procedures before claiming anything as fact.\n   - Use the order lookup tool if the customer references an order, account, or transaction.\n   - Never guess at order status, refund eligibility, or policy details \u2014 look them up.\n\n4. Assess your own confidence (0.0\u20131.0) in whether you can fully and correctly resolve this without a human:\n   - Only score above 0.8 if your knowledge base or tool lookups directly answered the question.\n   - Score low if the question is ambiguous, emotionally charged, involves money above a routine refund, or your tools returned nothing relevant.\n\n5. If drafting a reply, write in a warm, concise, professional tone matching [Company Name]'s voice. Never invent policies, prices, or timelines not found via your tools. Never promise refunds, discounts, or exceptions \u2014 only report what tools confirm.\n\n6. Always respond with ONLY a JSON object in this exact shape, no other text:\n\n{\n  \"classification\": \"billing\" | \"technical\" | \"general\" | \"urgent\" | \"spam\",\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"one sentence on why you classified and scored it this way\",\n  \"draftReply\": \"the full reply text, or empty string if classification is spam or urgent\"\n}\n\nNOTES:\nDo not include markdown formatting, code fences, or any explanation outside the JSON object.\n\nIf the order lookup tool returns multiple orders for a customer, ask  them to clarify which order (by order ID) they're asking about,  rather than guessing.\n\nDo not wrap your JSON response in markdown code fences or backticks.  Return only the raw JSON object, starting with { and ending with },  with absolutely no other text before or after it.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        -48
+      ],
+      "id": "c126a352-77e5-442c-bc7d-7c8b212ee335",
+      "name": "AI Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-sonnet-5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        16,
+        160
+      ],
+      "id": "78591c00-f762-4711-b486-0bd062a90327",
+      "name": "Claude Sonnet-5",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Get Data').item.json.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        144,
+        160
+      ],
+      "id": "18e94b2a-22f7-4687-8469-9c7c5cd6931e",
+      "name": "Memory"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1e6a9cc-d3d9-4f22-816f-df6664e1070a",
+              "name": "Sender",
+              "value": "={{ $json.from.value[0].name }}",
+              "type": "string"
+            },
+            {
+              "id": "674a28fb-bf2f-4f6d-aa1f-d4c1d9561bc3",
+              "name": "Sender Email",
+              "value": "={{ $json.from.value[0].address }}",
+              "type": "string"
+            },
+            {
+              "id": "f655cb3c-996a-4e34-8d62-79895cadd236",
+              "name": "Subject",
+              "value": "={{ $json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "a3945e13-7497-4392-b7e4-ea35d8356019",
+              "name": "Body",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "9218c83f-f1de-48df-83ae-8496026f2f26",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "20d3511d-4b65-48dd-b31e-7d7d9f8dd7f5",
+              "name": "threadId",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "7d69a3b0-70f1-42d1-af67-f1eebdbbee6c",
+              "name": "messageId",
+              "value": "={{ $json.messageId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        32,
+        -112
+      ],
+      "id": "065434ee-3a2d-44aa-865d-c367b2029efb",
+      "name": "Get Data"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Searches the company knowledge base for FAQs, policies, and support \ndocumentation. Use this to answer questions about refund policy, \nshipping timelines, account procedures, or general how-to questions.",
+        "tableName": {
+          "__rl": true,
+          "value": "support_kb_documents",
+          "mode": "list",
+          "cachedResultName": "support_kb_documents"
+        },
+        "options": {
+          "queryName": "match_support_kb_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        160
+      ],
+      "id": "38d846cf-2fda-477d-8043-0ddf3a198de0",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        416,
+        320
+      ],
+      "id": "850ca03f-6584-4307-a3e3-f4d66fb5147e",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Looks up order status by order ID or customer email. Use this when \n    a customer asks about their order status, shipment, or delivery.",
+        "url": "https://YOUR-N8N-INSTANCE.com/webhook/orders",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "order_id",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Value', ``, 'string') }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters1_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        256,
+        160
+      ],
+      "id": "22643c54-2315-47e9-a0a3-d45ec73ce402",
+      "name": "Orders"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.output;\n\n// Strip markdown code fences if present\nconst jsonMatch = raw.match(/\\{[\\s\\S]*\\}/);\nconst cleaned = jsonMatch ? jsonMatch[0] : raw;\n\nconst parsed = JSON.parse(cleaned);\n\nreturn [{ \n  json: {\n    ...($input.first().json),\n    classification: parsed.classification,\n    confidence: parsed.confidence,\n    reasoning: parsed.reasoning,\n    draftReply: parsed.draftReply\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -112
+      ],
+      "id": "c0886ace-b31a-4e61-a5f7-9ae59f33049f",
+      "name": "Parse Agent Output"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.classification }}",
+                    "rightValue": "urgent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "a09eb638-4d18-48c3-bb90-cf52d6d39987"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "urgent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a51e2945-cb22-45d4-ae5c-9016810d199b",
+                    "leftValue": "={{ $json.classification }}",
+                    "rightValue": "spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "spam"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        816,
+        -128
+      ],
+      "id": "1a82c917-b9ac-484c-b512-22fac91d00f5",
+      "name": "Classifications"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Get Data').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $('Parse Agent Output').item.json.draftReply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1296,
+        112
+      ],
+      "id": "3b23931f-5c3a-4cde-be74-627ecd6674df",
+      "name": "Reply to Email",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Get Data').item.json.id }}",
+        "labelIds": [
+          "YOUR_GMAIL_LABEL_ID"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        -48
+      ],
+      "id": "91ad4efb-d3ea-4ce4-9633-31e8a8b10198",
+      "name": "Label Spam",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "your-slack-channel"
+        },
+        "text": "={{ $('Parse Agent Output').item.json.draftReply }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1104,
+        -224
+      ],
+      "id": "d927a7ac-9b75-4f89-a986-0a2535347643",
+      "name": "Urgent Slack Message",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Get Data').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $('Classifications').item.json.draftReply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        272
+      ],
+      "id": "31488dc4-e61d-4d4d-bc6f-c16bcb797d70",
+      "name": "Low/Classification",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1888,
+        64
+      ],
+      "id": "807874d6-f4a7-43e2-8982-a66fe6ca496f",
+      "name": "Merge Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a68660af-1320-4846-bf41-0f905d73f28c",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        128
+      ],
+      "id": "fdc0b45f-210e-45f9-9ee9-33cccdceb75d",
+      "name": "Confidence >=0.8"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "your-slack-channel"
+        },
+        "text": "={{ $('Classifications').item.json.draftReply }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1296,
+        272
+      ],
+      "id": "d0119d4e-8186-4db5-9f17-212b5d99e7b4",
+      "name": "Low Confidence Slack Notif",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "76ef36f7-e643-4e8c-986f-f0d70e91522b",
+              "name": "timestamp",
+              "value": "={{ $now.format('MMMM dd, yyyy - hh:mm a') }}",
+              "type": "string"
+            },
+            {
+              "id": "c61457bd-bcf6-4936-87e1-58729e0c4663",
+              "name": "sender_email",
+              "value": "={{ $('Poll Emails').item.json.headers.from }}",
+              "type": "string"
+            },
+            {
+              "id": "683cc83d-2c2d-4a9a-8fa0-ff3a714861cb",
+              "name": "subject",
+              "value": "={{ $('Poll Emails').item.json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "334857b6-0452-4d7c-a8de-cb7048b8b5b9",
+              "name": "classification",
+              "value": "={{ $('Parse Agent Output').item.json.classification }}",
+              "type": "string"
+            },
+            {
+              "id": "33078502-f4a2-4aaf-8240-7a3762ee5854",
+              "name": "confidence",
+              "value": "={{ $('Parse Agent Output').item.json.confidence }}",
+              "type": "number"
+            },
+            {
+              "id": "33849f84-1596-4669-b0fc-355215df7191",
+              "name": "action_taken",
+              "value": "={{ $json.action_taken }}",
+              "type": "string"
+            },
+            {
+              "id": "8466e785-4e16-428d-8c17-ccc94d99a6ed",
+              "name": "message_id",
+              "value": "={{ $('Poll Emails').item.json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        96
+      ],
+      "id": "5eb9e94a-f73a-49a4-9b9f-7552adf3929c",
+      "name": "Get Logs"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b482537d-f7aa-4d69-aa28-1863180cf611",
+              "name": "action_taken",
+              "value": "auto_replied",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        112
+      ],
+      "id": "bd28bcdd-7482-4f30-afdb-64db16890882",
+      "name": "auto_replied"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f6f2b5de-3a09-408e-93e8-66c65ec96073",
+              "name": "action_taken",
+              "value": "escalated_urgent",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1296,
+        -224
+      ],
+      "id": "2cfa435d-3213-45d7-9efc-520b1f91fda7",
+      "name": "escalated_urgent"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "77e63e78-3d2f-499a-b3fb-fd8a35844e00",
+              "name": "action_taken",
+              "value": "escalated_low_confidence",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1712,
+        272
+      ],
+      "id": "5b8a4768-0602-4d1b-a06b-9b07b8c0051e",
+      "name": "escalated_low_confidence"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b768c202-d26f-4626-bdaf-57b049a03ec5",
+              "name": "action_taken",
+              "value": "labeled_spam",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1296,
+        -48
+      ],
+      "id": "b1448467-2d5e-4ddd-9905-fb5ceb6613b9",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1h3_UxuvktklbkiabeMk8T5yuayoT6cvvIu736a1HMJ8",
+          "mode": "list",
+          "cachedResultName": "Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1h3_UxuvktklbkiabeMk8T5yuayoT6cvvIu736a1HMJ8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 985334062,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1h3_UxuvktklbkiabeMk8T5yuayoT6cvvIu736a1HMJ8/edit#gid=985334062"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sender_email",
+              "displayName": "sender_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "classification",
+              "displayName": "classification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_taken",
+              "displayName": "action_taken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2288,
+        96
+      ],
+      "id": "70939fa0-fbaa-4377-ad71-f959614cb11f",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "your-slack-channel"
+        },
+        "text": "=\u26a0\ufe0f Support workflow failed to process an email\n\nFrom: {{ $json['Sender Email'] }}\nSubject: {{ $json.Subject }}\nError: {{ $json.error?.message || 'Unknown error' }}\n\nPlease check this email manually.",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        704,
+        80
+      ],
+      "id": "c4539997-e1fd-4e4a-96ef-1b869b5678c9",
+      "name": "Error Notification",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Poll Emails": {
+      "main": [
+        [
+          {
+            "node": "Get Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Sonnet-5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orders": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent Output": {
+      "main": [
+        [
+          {
+            "node": "Classifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classifications": {
+      "main": [
+        [
+          {
+            "node": "Urgent Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Label Spam",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Confidence >=0.8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgent Slack Message": {
+      "main": [
+        [
+          {
+            "node": "escalated_urgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Label Spam": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to Email": {
+      "main": [
+        [
+          {
+            "node": "auto_replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Low/Classification": {
+      "main": [
+        [
+          {
+            "node": "escalated_low_confidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence >=0.8": {
+      "main": [
+        [
+          {
+            "node": "Reply to Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Low Confidence Slack Notif",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Low Confidence Slack Notif": {
+      "main": [
+        [
+          {
+            "node": "Low/Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Data": {
+      "main": [
+        [
+          {
+            "node": "Get Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "auto_replied": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "escalated_urgent": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "escalated_low_confidence": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get Logs": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Manila",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "38b83c98-2da2-4393-90ed-6d04fc7d3772",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "Nqjb1qh57AzYa1NL",
+  "tags": [
+    {
+      "updatedAt": "2026-07-15T12:11:53.041Z",
+      "createdAt": "2026-07-15T12:11:53.041Z",
+      "id": "D6y2K4seHoNBfnqI",
+      "name": "Project AI Agents"
+    }
+  ]
+}
