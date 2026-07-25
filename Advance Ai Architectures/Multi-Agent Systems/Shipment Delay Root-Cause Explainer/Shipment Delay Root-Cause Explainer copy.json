@@ -1,0 +1,788 @@
+{
+  "name": "Shipment Delay Root-Cause Explainer copy",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        0
+      ],
+      "id": "db7737e9-b429-4439-8648-20278948291a",
+      "name": "getShipmentDetails",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fBB6nOzGVQi6RE7Z",
+          "name": "Google Sheets account clean"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        0
+      ],
+      "id": "b1dcb548-0a3f-4fe7-8eed-860b69a78d0a",
+      "name": "trigger"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"shipment_id\": {\n      \"type\": \"string\"\n    },\n    \"root_cause\": {\n      \"type\": \"string\"\n    },\n    \"contributing_factors\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"factor\": {\n            \"type\": \"string\"\n          },\n          \"weight\": {\n            \"type\": \"integer\"\n          }\n        },\n        \"required\": [\n          \"factor\",\n          \"weight\"\n        ]\n      }\n    },\n    \"confidence\": {\n      \"type\": \"integer\"\n    },\n    \"explanation\": {\n      \"type\": \"string\"\n    },\n    \"recommended_action\": {\n      \"type\": \"string\"\n    },\n    \"urgency\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"Low\",\n        \"Medium\",\n        \"High\"\n      ]\n    }\n  },\n  \"required\": [\n    \"shipment_id\",\n    \"root_cause\",\n    \"contributing_factors\",\n    \"confidence\",\n    \"explanation\",\n    \"recommended_action\",\n    \"urgency\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        592,
+        160
+      ],
+      "id": "71e68d70-ecc4-43c4-b968-83cf76f998e2",
+      "name": "S.O.P"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        448,
+        160
+      ],
+      "id": "c15d63a8-670b-403c-90a4-0707d883077b",
+      "name": "gpt-4.1-mini",
+      "credentials": {
+        "openRouterApi": {
+          "id": "LR5mqRRfR7LDCaak",
+          "name": "OpenRouter account clean"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.urgency }}",
+                    "rightValue": "High",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "82f01948-6d8a-45f3-a526-2bdefa237626"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "High"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e1129223-e657-4963-b93a-a9dce02c4168",
+                    "leftValue": "={{ $json.output.urgency }}",
+                    "rightValue": "Medium",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Medium"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "dbe11fbf-5d2c-40c4-816b-e66659e0355b",
+                    "leftValue": "={{ $json.output.urgency }}",
+                    "rightValue": "Low",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Low"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -16
+      ],
+      "id": "a79e1fe1-ca6c-4a76-a19b-3ba8dab826bc",
+      "name": "routeUrgency"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "text": "=🚨 Shipment Delay Alert!!!  \nShipment: {{ $json.output.shipment_id }}\nUrgency: {{$json.output.urgency}}  \n\nCause: {{$json.output.root_cause}}  \n\nRecommendation: {{$json.output.recommended_action}}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        -144
+      ],
+      "id": "4a02de62-dd41-420c-941b-d67e6af547eb",
+      "name": "highUrgency",
+      "webhookId": "0067b725-2643-4aa4-b713-303572c757bb",
+      "credentials": {
+        "slackApi": {
+          "id": "Wwm0VjnokGLQ1vSE",
+          "name": "Slack Clean"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c610bee8-4aaf-44eb-ad3f-6925fdc955d1",
+              "name": "shipment_id",
+              "value": "={{ $json.output.shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "3e8248e3-9acc-4264-b89d-76cfd8ce9e06",
+              "name": "root_cause",
+              "value": "={{ $json.output.root_cause }}",
+              "type": "string"
+            },
+            {
+              "id": "b6b12e17-6960-4836-a226-89dab3e38d56",
+              "name": "explanation",
+              "value": "={{ $json.output.explanation }}",
+              "type": "string"
+            },
+            {
+              "id": "9ee2e918-5669-4f13-a0cb-7de4141a8e73",
+              "name": "recommended_action",
+              "value": "={{ $json.output.recommended_action }}",
+              "type": "string"
+            },
+            {
+              "id": "3ec22550-e225-43ba-80c0-7f7295176b82",
+              "name": "urgency",
+              "value": "={{ $json.output.urgency }}",
+              "type": "string"
+            },
+            {
+              "id": "3102ca1d-5264-4d9c-bad2-2ba56f0b3771",
+              "name": "confidence",
+              "value": "={{ $json.output.confidence }}",
+              "type": "number"
+            },
+            {
+              "id": "04213dcf-058a-4b6a-8142-c0216deba83d",
+              "name": "contributing_factors",
+              "value": "={{ $json.output.contributing_factors }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "a0b408ec-4df1-42c3-9f16-7d4c6cbc2a5e",
+      "name": "mapOutputData"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1312,
+        0
+      ],
+      "id": "c4cc0bbb-0791-4782-aa3e-527c85a943c6",
+      "name": "mediumLogs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fBB6nOzGVQi6RE7Z",
+          "name": "Google Sheets account clean"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1312,
+        -144
+      ],
+      "id": "5b8bbbe9-eb67-4018-baea-d04441aff1ae",
+      "name": "highUrgencyLogs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fBB6nOzGVQi6RE7Z",
+          "name": "Google Sheets account clean"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c610bee8-4aaf-44eb-ad3f-6925fdc955d1",
+              "name": "shipment_id",
+              "value": "={{ $json.output.shipment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "3e8248e3-9acc-4264-b89d-76cfd8ce9e06",
+              "name": "root_cause",
+              "value": "={{ $json.output.root_cause }}",
+              "type": "string"
+            },
+            {
+              "id": "b6b12e17-6960-4836-a226-89dab3e38d56",
+              "name": "explanation",
+              "value": "={{ $json.output.explanation }}",
+              "type": "string"
+            },
+            {
+              "id": "9ee2e918-5669-4f13-a0cb-7de4141a8e73",
+              "name": "recommended_action",
+              "value": "={{ $json.output.recommended_action }}",
+              "type": "string"
+            },
+            {
+              "id": "3ec22550-e225-43ba-80c0-7f7295176b82",
+              "name": "urgency",
+              "value": "={{ $json.output.urgency }}",
+              "type": "string"
+            },
+            {
+              "id": "3102ca1d-5264-4d9c-bad2-2ba56f0b3771",
+              "name": "confidence",
+              "value": "={{ $json.output.confidence }}",
+              "type": "number"
+            },
+            {
+              "id": "04213dcf-058a-4b6a-8142-c0216deba83d",
+              "name": "contributing_factors",
+              "value": "={{ $json.output.contributing_factors }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        144
+      ],
+      "id": "6ee47b3a-aab1-4c13-beca-3f874d3c0f45",
+      "name": "mapLowOutputData"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1312,
+        144
+      ],
+      "id": "910e2f1e-558c-46f3-ab4f-e538cd38942b",
+      "name": "lowLogs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "fBB6nOzGVQi6RE7Z",
+          "name": "Google Sheets account clean"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1632,
+        -16
+      ],
+      "id": "2b4aaf57-f6b9-4c44-8e5c-c00d57c5dd0a",
+      "name": "mergeDataOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Shipment Information\n\nShipment ID:\n{{$json.shipment_id}}\n\nOrigin:\n{{$json.origin}}\n\nDestination:\n{{$json.destination}}\n\nCarrier:\n{{$json.carrier}}\n\nDelay Hours:\n{{$json.delay_hours}}\n\nWeather:\n{{$json.weather}}\n\nCustoms:\n{{$json.customs}}\n\nInventory Issue:\n{{$json.inventory_issue}}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a logistics analyst.\n\nAnalyze the shipment information.\n\nDetermine:\n\n1. Primary root cause.\n2. Identify all contributing factors.\n3. Assign each factor a percentage weight.\n4. The weights must total exactly 100%.\n5. Estimate confidence (0-100).\n6. Explain the delay.\n7. Recommend the next action.\n8. Classify urgency.\n\n\nReturn ONLY valid JSON.\n\nExample:\n\n{\n  \"shipment_id\": \"SHP-1001\",\n  \"root_cause\": \"Weather Delay\",\n  \"contributing_factors\": [\n    {\n      \"factor\": \"Weather\",\n      \"weight\": 70\n    },\n    {\n      \"factor\": \"Customs\",\n      \"weight\": 30\n    }\n  ],\n  \"confidence\": 94,\n  \"explanation\": \"Heavy storms delayed vessel departure and customs inspection added additional waiting time.\",\n  \"recommended_action\": \"Notify customer and escalate with the carrier.\",\n  \"urgency\": \"High\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "204b134f-a623-4d7e-87bc-7a0c6366c3fc",
+      "name": "logistics analyst"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate today's executive logistics report.\n\nUse ONLY the statistics below.\n\n{{ JSON.stringify($input.first().json, null, 2) }}\n\nDo not invent numbers.\n\nWrite a professional manager briefing.\n\nReturn valid JSON only.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a Senior Logistics Operations Manager.\n\nYou will receive logistics KPIs and shipment reports.\n\nWrite:\n\n1. Manager briefing\n2. Executive summary\n3. Operational trends\n4. Top recommendations\n5. Next 24-hour priorities\n\nDo not calculate statistics.\nUse the KPIs provided.\nReturn valid JSON only."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2240,
+        0
+      ],
+      "id": "54b8bc75-a789-471a-b6f8-e91fe9591db3",
+      "name": "Senior Logistics Operations Manager"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "shipment",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        0
+      ],
+      "id": "ca82ee6a-d814-4c1c-8288-2bae9468c4d6",
+      "name": "compressData"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the shipment array from the Aggregate/Compress node\nconst shipments = items[0].json.shipment || [];\n\nconst total = shipments.length;\n\nconst high = shipments.filter(s => s.urgency === \"High\").length;\nconst medium = shipments.filter(s => s.urgency === \"Medium\").length;\nconst low = shipments.filter(s => s.urgency === \"Low\").length;\n\n// Average confidence\nconst avgConfidence =\n    total > 0\n        ? shipments.reduce((sum, s) => sum + (s.confidence || 0), 0) / total\n        : 0;\n\n// Count root causes\nconst rootCauses = {};\n\n// Sum contributing factor weights\nconst factors = {};\n\nfor (const shipment of shipments) {\n\n    if (shipment.root_cause) {\n        rootCauses[shipment.root_cause] =\n            (rootCauses[shipment.root_cause] || 0) + 1;\n    }\n\n    if (Array.isArray(shipment.contributing_factors)) {\n\n        for (const factor of shipment.contributing_factors) {\n\n            factors[factor.factor] =\n                (factors[factor.factor] || 0) + factor.weight;\n\n        }\n\n    }\n\n}\n\n// Sort root causes\nconst sortedRootCauses = Object.entries(rootCauses)\n    .sort((a, b) => b[1] - a[1]);\n\n// Sort contributing factors\nconst sortedFactors = Object.entries(factors)\n    .sort((a, b) => b[1] - a[1]);\n\nconst topRootCause =\n    sortedRootCauses.length > 0\n        ? sortedRootCauses[0][0]\n        : \"None\";\n\nconst topFactor =\n    sortedFactors.length > 0\n        ? sortedFactors[0][0]\n        : \"None\";\n\n// Highest risk shipments\nconst highestRisk = shipments\n    .filter(s => s.urgency === \"High\")\n    .map(s => s.shipment_id);\n\n// Return one item\nreturn [\n    {\n        json: {\n\n            total_shipments: total,\n\n            urgency_breakdown: {\n                high,\n                medium,\n                low\n            },\n\n            average_confidence: Number(avgConfidence.toFixed(1)),\n\n            top_root_cause: topRootCause,\n\n            top_contributing_factor: topFactor,\n\n            highest_risk_shipments: highestRisk,\n\n            shipment_reports: shipments\n\n        }\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        0
+      ],
+      "id": "42295258-75ec-4eb9-b5e8-f7eeaf991ca8",
+      "name": "parseData"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"report_date\": \"2026-07-26\",\n  \"total_shipments\": 10,\n  \"shipment_breakdown\": {\n    \"high_urgency\": 3,\n    \"medium_urgency\": 7,\n    \"low_urgency\": 0\n  },\n  \"kpis\": {\n    \"average_confidence\": 91,\n    \"high_risk_percentage\": 30,\n    \"weather_related_percentage\": 40,\n    \"customs_related_percentage\": 20,\n    \"inventory_related_percentage\": 30,\n    \"carrier_related_percentage\": 10\n  },\n  \"top_delay_causes\": [\n    {\n      \"cause\": \"Weather Delay\",\n      \"count\": 4\n    },\n    {\n      \"cause\": \"Inventory Issue\",\n      \"count\": 3\n    }\n  ],\n  \"highest_risk_shipments\": [\n    {\n      \"shipment_id\": \"SHP-1003\",\n      \"urgency\": \"High\",\n      \"root_cause\": \"Inventory Issue\",\n      \"confidence\": 95\n    }\n  ],\n  \"operational_trends\": [\n    \"Weather remains the leading cause of delays.\",\n    \"Inventory issues have increased this week.\"\n  ],\n  \"recommended_actions\": [\n    \"Notify affected customers.\",\n    \"Coordinate with carriers.\",\n    \"Monitor weather forecasts.\"\n  ],\n  \"manager_briefing\": \"Operations remained stable despite several weather-related disruptions.\",\n  \"executive_summary\": \"Ten shipments were processed today with three high urgency cases.\",\n  \"next_24_hour_priorities\": [\n    \"Monitor high-risk shipments.\",\n    \"Follow up with carriers.\",\n    \"Review inventory bottlenecks.\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2384,
+        176
+      ],
+      "id": "91291629-9571-487b-adaf-483593f60c4b",
+      "name": "SOP"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        176
+      ],
+      "id": "4b40ad03-567e-4383-ad15-6d19c1d0a80c",
+      "name": "gpt-4.1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "LR5mqRRfR7LDCaak",
+          "name": "OpenRouter account clean"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "",
+          "cachedResultUrl": ""
+        },
+        "text": "=🚢 *Daily Shipment Executive Report*\n\n📅 *Date:* {{ $json.output.report_date }}\n\n━━━━━━━━━━━━━━━━━━━━━━\n📦 *Shipment Overview*\n• Total Shipments: *{{ $json.output.total_shipments }}*\n\n━━━━━━━━━━━━━━━━━━━━━━\n🚨 *Highest Risk Shipments*\n\n{{ $json.output.highest_risk_shipments\n.map(s => `• ${s.shipment_id} | ${s.root_cause} | ${s.confidence}% Confidence`)\n.join('\\n') }}\n\n━━━━━━━━━━━━━━━━━━━━━━\n📊 *Key Performance Indicators*\n\n🎯 Average Confidence\n• {{ $json.output.kpis.average_confidence }}%\n\n🔥 High Risk Shipments\n• {{ $json.output.kpis.high_risk_percentage }}%\n\n🌧️ Weather Related\n• {{ $json.output.kpis.weather_related_percentage }}%\n\n🛃 Customs Related\n• {{ $json.output.kpis.customs_related_percentage }}%\n\n📦 Inventory Related\n• {{ $json.output.kpis.inventory_related_percentage }}%\n\n🚚 Carrier Related\n• {{ $json.output.kpis.carrier_related_percentage }}%\n\n━━━━━━━━━━━━━━━━━━━━━━\n📝 *Manager Briefing*\n\n{{ $json.output.manager_briefing }}\n\n━━━━━━━━━━━━━━━━━━━━━━\n📈 *Executive Summary*\n\n{{ $json.output.executive_summary }}\n\n━━━━━━━━━━━━━━━━━━━━━━\n🤖 Generated automatically by the Shipment Delay Root-Cause Explainer",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        2592,
+        0
+      ],
+      "id": "5b95ac14-42db-4b79-b0d9-45656da78cde",
+      "name": "sendSummaryReport",
+      "webhookId": "c4b1eb75-e392-4452-816d-fc83a8873941",
+      "credentials": {
+        "slackApi": {
+          "id": "Wwm0VjnokGLQ1vSE",
+          "name": "Slack Clean"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "trigger": {
+      "main": [
+        [
+          {
+            "node": "getShipmentDetails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getShipmentDetails": {
+      "main": [
+        [
+          {
+            "node": "logistics analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S.O.P": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "logistics analyst",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gpt-4.1-mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "logistics analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "routeUrgency": {
+      "main": [
+        [
+          {
+            "node": "highUrgency",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "mapOutputData",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "mapLowOutputData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mapOutputData": {
+      "main": [
+        [
+          {
+            "node": "mediumLogs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "highUrgency": {
+      "main": [
+        [
+          {
+            "node": "highUrgencyLogs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mapLowOutputData": {
+      "main": [
+        [
+          {
+            "node": "lowLogs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "highUrgencyLogs": {
+      "main": [
+        [
+          {
+            "node": "mergeDataOutput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mediumLogs": {
+      "main": [
+        [
+          {
+            "node": "mergeDataOutput",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "lowLogs": {
+      "main": [
+        [
+          {
+            "node": "mergeDataOutput",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "mergeDataOutput": {
+      "main": [
+        [
+          {
+            "node": "compressData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "logistics analyst": {
+      "main": [
+        [
+          {
+            "node": "routeUrgency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compressData": {
+      "main": [
+        [
+          {
+            "node": "parseData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parseData": {
+      "main": [
+        [
+          {
+            "node": "Senior Logistics Operations Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SOP": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Senior Logistics Operations Manager",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gpt-4.1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Senior Logistics Operations Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Senior Logistics Operations Manager": {
+      "main": [
+        [
+          {
+            "node": "sendSummaryReport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5812lkvt393a0-d1f2-4a90938563e-b6b0-3b72p4398v2414c790",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a6e0c81e4fb59b429c00e1mksg8546454cbad9c9647be308743cm0q57aed7cbe1314bb7130321d6"
+  },
+  "nodeGroups": [],
+  "id": "Rtid4IUa8wvjxaoKV4fyn",
+  "tags": []
+}
