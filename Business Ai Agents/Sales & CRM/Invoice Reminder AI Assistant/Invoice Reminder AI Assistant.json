@@ -1,0 +1,715 @@
+{
+  "name": "Invoice Reminder Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "maxResults": 1,
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -96,
+        16
+      ],
+      "id": "aa261e4c-a953-481d-9b3a-fb612ecc9ef1",
+      "name": "invoiceEmail",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GOOGLE_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        128,
+        192
+      ],
+      "id": "f79de093-89e1-4f4b-a4d9-da17be044435",
+      "name": "deepseek",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "API account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        96
+      ],
+      "id": "6524627e-5d14-460a-a2dc-2d245fd61b28",
+      "name": "non-invoice"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_570264788136348409"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -80
+      ],
+      "id": "57f671ef-2dcb-4ed0-aaee-1f63ff9b5d1b",
+      "name": "addLabel: Invoice",
+      "webhookId": "38b21dac-c0cb-4272-bea7-2166e4611d6c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GOOGLE_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=From:  {{ $('invoiceEmail').item.json.from.value[0].name }}\nEmail: {{ $('invoiceEmail').item.json.from.value[0].address }}\n\nSubject: {{ $('Classify Invoice').item.json.subject }}\n\nMessage: {{ $('invoiceEmail').item.json.text }}",
+        "options": {
+          "systemMessage": "You are an Invoice Processing Assistant responsible for analyzing incoming emails and determining whether they contain a valid invoice.\n\nCustomer Name from Email Metadata:\n{{ $('invoiceEmail').item.json.from.value[0].name }}\n\nUse this value as the customerName field.\n\nIf the value is empty or unavailable, return null.\nDo not infer or invent a customer name from the email body.\n\nYour job is to:\n\n1. **Classify the email**\n\n   * Determine whether the email is an `Invoice` or `Non-Invoice`.\n   * An Invoice contains a bill, payment request, or invoice document for goods or services.\n   * A Non-Invoice does not require invoice processing.\n\n2. **Validate the invoice**\n\n   * Determine whether the provided information is sufficient to identify and process the invoice.\n   * Assign a confidence score from **1 to 10**, where:\n\n     * `10` = Extremely confident. The email clearly contains a valid invoice with sufficient information.\n     * `8-9` = Highly confident. Minor information may be missing but the invoice is clearly identifiable.\n     * `5-7` = Moderate confidence. Some important information is unclear or incomplete.\n     * `3-4` = Low confidence. Significant information is missing or ambiguous.\n     * `1-2` = Extremely low confidence. The email is not an invoice or contains insufficient information to validate it.\n   * Never invent missing information.\n   * If information is unavailable, return `null`.\n\n3. **Extract invoice information**\n   Extract the following fields when available:\n\n   * Invoice number\n   * Vendor name\n   * Customer/company name\n   * Description\n   * Amount due\n   * Currency\n   * Invoice date\n   * Due date\n   * Payment terms\n   * Email sender\n   * Email subject\n\n4. **Calculate the due date**\n\n   * If an explicit due date is provided, use it.\n   * If no due date is provided but payment terms are available, calculate the due date using the invoice date and payment terms.\n   * Example: Invoice Date = September 1, 2026 and Terms = Net 15 → Due Date = September 16, 2026.\n   * If neither a due date nor payment terms are available, return `null`.\n   * Never guess a due date.\n\n5. **Determine invoice status**\n   Use the due date and payment information to determine the status:\n\n   * `Paid` = The invoice has been explicitly confirmed as paid.\n   * `Upcoming` = The invoice is unpaid and the due date has not passed.\n   * `Overdue` = The invoice is unpaid and the due date has passed.\n\n   If there is insufficient information to determine the status, return `null`.\n\n6. **Human-like reasoning**\n   Analyze the email naturally and carefully. Maintain a warm, professional, human tone when interpreting the content.\n\n   However, the final response MUST contain JSON only. Do not include explanations, greetings, markdown, code fences, or additional text outside the JSON object.\n\n## Required JSON Output\n\nReturn exactly this structure:\n\n{\n\"category\": \"Invoice\",\n\"validation\": {\n\"isValidInvoice\": true,\n\"confidenceScore\": 10,\n\"confidenceLevel\": \"Very High\"\n},\n\"invoice\": {\n\"invoiceNumber\": \"INV-2026-1045\",\n\"vendorName\": \"ABC Services\",\n\"customerName\": null,\n\"description\": \"IT Infrastructure Support Services\",\n\"amountDue\": 2500.00,\n\"currency\": \"USD\",\n\"invoiceDate\": \"2026-09-01\",\n\"dueDate\": \"2026-09-15\",\n\"paymentTerms\": null,\n\"senderEmail\": \"[user@example.com](mailto:user@example.com)\",\n\"subject\": \"Invoice INV-2026-1045 — ABC Services\"\n},\n\"status\": {\n\"value\": \"Upcoming\",\n\"daysUntilDue\": 10\n}\n}\n\n## Rules\n\n* Output **valid JSON only**.\n* Do not use Markdown or code fences.\n* Do not invent, assume, or hallucinate information.\n* Use `null` for unavailable information.\n* Dates must use `YYYY-MM-DD` format.\n* Amounts must be numeric values without currency symbols.\n* `confidenceScore` must be an integer from `1` to `10`.\n* `category` must be either `Invoice` or `Non-Invoice`.\n* `status.value` must be `Paid`, `Upcoming`, `Overdue`, or `null`.\n* If the email is `Non-Invoice`, set the `invoice` fields to `null` and do not attempt to extract or calculate invoice information.\n* Base all decisions strictly on the provided email and invoice content.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        704,
+        -80
+      ],
+      "id": "d58560c7-fba6-4d18-9c5f-f81b8ee7b654",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        704,
+        96
+      ],
+      "id": "97da8a50-7b1e-4694-b35b-4f64c9591315",
+      "name": "gemini",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "API account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "=From: {{ $json.from.value[0].address }}\nSubject: {{ $json.subject }}\nBody: {{ $json.text }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "invoice",
+              "description": "An email that contains, references, or communicates a bill or payment request for goods or services. It may include an invoice number, amount due, invoice date, due date, vendor information, payment instructions, or an attached invoice document."
+            },
+            {
+              "category": "non-invoice",
+              "description": "An email that does not contain a bill or payment request. This includes general inquiries, quotations, purchase discussions, receipts, payment confirmations, delivery updates, support messages, newsletters, and other business communications that do not require invoice processing."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        128,
+        16
+      ],
+      "id": "93a30a14-751b-4e51-a0c8-ca0602ba72f0",
+      "name": "Classify Invoice"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================\n// 1. Get AI response\n// ============================================\n\nconst aiOutput = $json.output ?? $json.message?.content ?? $json.content;\n\nif (!aiOutput) {\n  throw new Error('AI response is empty or missing.');\n}\n\n\n// ============================================\n// 2. Clean Markdown code fences\n// ============================================\n\nconst cleanedOutput = String(aiOutput)\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/\\s*```$/i, '')\n  .trim();\n\n\n// ============================================\n// 3. Parse AI JSON\n// ============================================\n\nlet data;\n\ntry {\n  data = JSON.parse(cleanedOutput);\n} catch (error) {\n  throw new Error(`Invalid JSON returned by AI: ${error.message}`);\n}\n\n\n// ============================================\n// 4. Get customer name directly from email\n// ============================================\n\nconst customerName =\n  $('invoiceEmail').item.json.from?.value?.[0]?.name ?? null;\n\n\n// ============================================\n// 5. Normalize confidence score\n// ============================================\n\nlet confidenceScore = Number(\n  data.validation?.confidenceScore ?? 0\n);\n\n// If AI returns 0.0–1.0 instead of 1–10\nif (confidenceScore > 0 && confidenceScore <= 1) {\n  confidenceScore = Math.round(confidenceScore * 10);\n}\n\n\n// ============================================\n// 6. Get invoice information\n// ============================================\n\nconst invoice = data.invoice ?? null;\n\nlet dueDate = invoice?.dueDate ?? null;\nlet invoiceDate = invoice?.invoiceDate ?? null;\nconst paymentTerms = invoice?.paymentTerms ?? null;\n\n\n// ============================================\n// 7. Calculate due date if necessary\n// ============================================\n\n// If AI provided a due date, use it.\n// Otherwise, try to calculate it from payment terms.\n\nif (!dueDate && invoiceDate && paymentTerms) {\n\n  const match = String(paymentTerms).match(/\\d+/);\n\n  if (match) {\n    const days = parseInt(match[0], 10);\n\n    const date = new Date(`${invoiceDate}T00:00:00Z`);\n\n    date.setUTCDate(date.getUTCDate() + days);\n\n    dueDate = date.toISOString().split('T')[0];\n  }\n}\n\n\n// ============================================\n// 8. Calculate days until due\n// ============================================\n\nlet daysUntilDue = null;\n\nif (dueDate) {\n\n  const today = new Date();\n  const todayUTC = new Date(\n    Date.UTC(\n      today.getUTCFullYear(),\n      today.getUTCMonth(),\n      today.getUTCDate()\n    )\n  );\n\n  const dueDateUTC = new Date(`${dueDate}T00:00:00Z`);\n\n  const difference =\n    dueDateUTC.getTime() - todayUTC.getTime();\n\n  daysUntilDue = Math.ceil(\n    difference / (1000 * 60 * 60 * 24)\n  );\n}\n\n\n// ============================================\n// 9. Determine invoice status\n// ============================================\n\nlet status = null;\n\nconst isPaid = data.payment?.isPaid ?? false;\n\nif (isPaid) {\n\n  status = 'Paid';\n\n} else if (daysUntilDue !== null) {\n\n  if (daysUntilDue >= 0) {\n    status = 'Upcoming';\n  } else {\n    status = 'Overdue';\n  }\n}\n\n\n// ============================================\n// 10. Return clean n8n item\n// ============================================\n\nreturn {\n  json: {\n\n    category: data.category\n      ? String(data.category).charAt(0).toUpperCase() +\n        String(data.category).slice(1).toLowerCase()\n      : null,\n\n    validation: {\n      isValidInvoice:\n        data.validation?.isValidInvoice ?? false,\n\n      confidenceScore,\n\n      confidenceLevel:\n        data.validation?.confidenceLevel ?? null\n    },\n\n    invoice: invoice\n      ? {\n          invoiceNumber:\n            invoice.invoiceNumber ?? null,\n\n          vendorName:\n            invoice.vendorName ?? null,\n\n          customerName,\n\n          description:\n            invoice.description ?? null,\n\n          amountDue:\n            invoice.amountDue ?? null,\n\n          currency:\n            invoice.currency ?? null,\n\n          invoiceDate,\n\n          dueDate,\n\n          paymentTerms,\n\n          senderEmail:\n            invoice.senderEmail ?? null,\n\n          subject:\n            invoice.subject ?? null\n        }\n      : null,\n\n    payment: {\n      isPaid\n    },\n\n    status: {\n      value: status,\n      daysUntilDue\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -80
+      ],
+      "id": "4fa44380-31a1-4a56-b9b9-721f1467825f",
+      "name": "parseData"
+    },
+    {
+      "parameters": {
+        "resource": "thread",
+        "operation": "reply",
+        "threadId": "={{ $('invoiceEmail').item.json.threadId }}",
+        "messageId": "={{ $('invoiceEmail').item.json.id }}",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Invoice Payment Confirmation</title>\n</head>\n\n<body style=\"margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, Helvetica, sans-serif;\">\n\n  <div style=\"max-width:600px; margin:40px auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.08);\">\n\n    <!-- Header -->\n    <div style=\"background:#198754; padding:28px 24px; text-align:center;\">\n      <div style=\"font-size:42px; margin-bottom:8px;\">✓</div>\n\n      <h1 style=\"margin:0; color:#ffffff; font-size:24px;\">\n        Payment Received\n      </h1>\n\n      <p style=\"margin:8px 0 0; color:#dff5e8; font-size:14px;\">\n        Invoice successfully marked as paid\n      </p>\n    </div>\n\n    <!-- Content -->\n    <div style=\"padding:30px; color:#333333;\">\n\n      <p style=\"font-size:16px; margin-top:0;\">\n        Hi {{ $json.invoice.customerName }},\n      </p>\n\n      <p style=\"font-size:15px; line-height:1.6;\">\n        This is a confirmation that payment for the invoice below has been\n        <strong>successfully received</strong> and the invoice is now\n        <strong style=\"color:#198754;\">paid</strong>.\n      </p>\n\n      <!-- Payment Status -->\n      <div style=\"background:#e9f7ef; border:1px solid #b7e4c7; border-radius:8px; padding:18px; margin:25px 0; text-align:center;\">\n\n        <p style=\"margin:0 0 6px; font-size:13px; color:#555555;\">\n          Payment Status\n        </p>\n\n        <p style=\"margin:0; font-size:22px; font-weight:bold; color:#198754;\">\n          {{ $json.status.value }}\n        </p>\n\n      </div>\n\n      <!-- Invoice Details -->\n      <div style=\"background:#f8f9fa; border-radius:8px; padding:20px; margin:25px 0;\">\n\n        <h2 style=\"font-size:17px; margin:0 0 15px; color:#333333;\">\n          Invoice Details\n        </h2>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Invoice Number:</strong>\n          {{ $json.invoice.invoiceNumber }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Vendor:</strong>\n          {{ $json.invoice.vendorName }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Description:</strong>\n          {{ $json.invoice.description }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Invoice Date:</strong>\n          {{ $json.invoice.invoiceDate }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Due Date:</strong>\n          {{ $json.invoice.dueDate }}\n        </p>\n\n        <hr style=\"border:none; border-top:1px solid #dddddd; margin:18px 0;\">\n\n        <p style=\"margin:9px 0; font-size:16px;\">\n          <strong>Amount Paid:</strong>\n          <span style=\"font-weight:bold; color:#198754;\">\n            {{ $json.invoice.amountDue }} {{ $json.invoice.currency }}\n          </span>\n        </p>\n\n      </div>\n\n      <p style=\"font-size:15px; line-height:1.6;\">\n        No further payment action is required for this invoice.\n        Please keep this email for your records.\n      </p>\n\n      <p style=\"font-size:15px; line-height:1.6; margin-bottom:0;\">\n        Thank you,<br>\n        <strong>Invoice Reminder Assistant</strong>\n      </p>\n\n    </div>\n\n    <!-- Footer -->\n    <div style=\"background:#f8f9fa; padding:16px 20px; text-align:center; color:#777777; font-size:12px;\">\n      This is an automated payment confirmation.\n      <br>\n      Invoice {{ $json.invoice.invoiceNumber }}\n    </div>\n\n  </div>\n\n</body>\n</html>",
+        "options": {
+          "senderName": "Invoice AI Assistant"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        -208
+      ],
+      "id": "3a953959-0447-4719-9182-ac29a9ac051a",
+      "name": "paidMessage",
+      "webhookId": "56325667-d8e7-46cd-9482-d301848bdff0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GOOGLE_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "user@example.com",
+        "subject": "=Invoice | Status: {{ $json.status.value }} | Invoice Number: {{ $json.invoice.invoiceNumber }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Invoice Status Notification</title>\n</head>\n\n<body style=\"margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, Helvetica, sans-serif;\">\n\n  <div style=\"max-width:650px; margin:40px auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.08);\">\n\n    <!-- Dynamic Header -->\n    <div style=\"\n      padding:26px 24px;\n      background:{{ $json.status.value === 'Overdue' ? '#dc3545' : '#f0ad4e' }};\n    \">\n\n      <h1 style=\"margin:0; color:#ffffff; font-size:23px;\">\n        {{ $json.status.value === 'Overdue' ? 'Overdue Invoice Alert' : 'Upcoming Invoice Alert' }}\n      </h1>\n\n      <p style=\"margin:8px 0 0; color:#ffffff; font-size:14px;\">\n        {{ $json.status.value === 'Overdue'\n          ? 'Immediate billing attention required'\n          : 'Billing team action may be required'\n        }}\n      </p>\n\n    </div>\n\n\n    <!-- Content -->\n    <div style=\"padding:30px; color:#333333;\">\n\n      <p style=\"font-size:16px; margin-top:0;\">\n        Hello Billing Team,\n      </p>\n\n\n      <!-- Dynamic Introduction -->\n      <p style=\"font-size:15px; line-height:1.6;\">\n\n        {{ $json.status.value === 'Overdue'\n          ? 'An invoice has passed its payment due date and is now overdue. Please review the invoice and take the necessary action as soon as possible.'\n          : 'An upcoming invoice has been identified and is approaching its payment due date. Please review the invoice and ensure payment is scheduled on time.'\n        }}\n\n      </p>\n\n\n      <!-- Dynamic Status Box -->\n      <div style=\"\n        background:{{ $json.status.value === 'Overdue' ? '#fcebec' : '#fff8e8' }};\n        border:1px solid {{ $json.status.value === 'Overdue' ? '#f1aeb5' : '#f5d28a' }};\n        border-radius:8px;\n        padding:18px;\n        margin:25px 0;\n      \">\n\n        <p style=\"margin:0 0 6px; font-size:13px; color:#666666;\">\n          Invoice Status\n        </p>\n\n        <p style=\"\n          margin:0;\n          font-size:21px;\n          font-weight:bold;\n          color:{{ $json.status.value === 'Overdue' ? '#dc3545' : '#c77c00' }};\n        \">\n          {{ $json.status.value }}\n        </p>\n\n        <p style=\"margin:8px 0 0; font-size:14px; color:#555555;\">\n\n          {{ $json.status.value === 'Overdue'\n            ? '<strong>' + Math.abs($json.status.daysUntilDue) + '</strong> days overdue.'\n            : '<strong>' + $json.status.daysUntilDue + '</strong> days remaining until the payment due date.'\n          }}\n\n        </p>\n\n      </div>\n\n\n      <!-- Invoice Details -->\n      <div style=\"background:#f8f9fa; border-radius:8px; padding:20px; margin:25px 0;\">\n\n        <h2 style=\"font-size:17px; margin:0 0 16px;\">\n          Invoice Details\n        </h2>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Invoice Number:</strong>\n          {{ $json.invoice.invoiceNumber }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Vendor:</strong>\n          {{ $json.invoice.vendorName }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Customer:</strong>\n          {{ $json.invoice.customerName }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Description:</strong>\n          {{ $json.invoice.description }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Invoice Date:</strong>\n          {{ $json.invoice.invoiceDate }}\n        </p>\n\n        <p style=\"margin:9px 0; font-size:14px;\">\n          <strong>Due Date:</strong>\n          {{ $json.invoice.dueDate }}\n        </p>\n\n        <hr style=\"border:none; border-top:1px solid #dddddd; margin:18px 0;\">\n\n        <p style=\"margin:9px 0; font-size:17px;\">\n          <strong>Amount Due:</strong>\n\n          <span style=\"\n            color:{{ $json.status.value === 'Overdue' ? '#dc3545' : '#c77c00' }};\n            font-weight:bold;\n          \">\n            {{ $json.invoice.amountDue }} {{ $json.invoice.currency }}\n          </span>\n\n        </p>\n\n      </div>\n\n\n      <!-- Dynamic Action -->\n      <div style=\"\n        border-left:4px solid {{ $json.status.value === 'Overdue' ? '#dc3545' : '#f0ad4e' }};\n        padding:12px 16px;\n        margin:25px 0;\n        background:#fafafa;\n      \">\n\n        <p style=\"margin:0; font-size:14px; line-height:1.6;\">\n\n          <strong>\n            {{ $json.status.value === 'Overdue'\n              ? 'Recommended Action:'\n              : 'Recommended Action:'\n            }}\n          </strong>\n          <br>\n\n          {{ $json.status.value === 'Overdue'\n            ? 'Contact the vendor or responsible payment owner, verify the payment status, and initiate escalation if necessary.'\n            : 'Review the invoice and confirm that payment is scheduled before the stated due date.'\n          }}\n\n        </p>\n\n      </div>\n\n\n      <!-- Footer Message -->\n      <p style=\"font-size:14px; line-height:1.6; color:#666666;\">\n        This notification was automatically generated by the\n        <strong>Invoice Reminder Assistant</strong>.\n      </p>\n\n    </div>\n\n\n    <!-- Footer -->\n    <div style=\"background:#f8f9fa; padding:16px 20px; text-align:center; color:#777777; font-size:12px;\">\n\n      Automated Billing Notification\n      <br>\n\n      Invoice {{ $json.invoice.invoiceNumber }}\n\n    </div>\n\n  </div>\n\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        -64
+      ],
+      "id": "a6c6352c-9120-40c6-8551-0e596c6c6e1d",
+      "name": "sendReminder",
+      "webhookId": "01d67adc-360a-48b7-85af-b5d5556f765d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GOOGLE_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0BJ459M43U",
+          "mode": "list",
+          "cachedResultName": "n8n-automations"
+        },
+        "text": "=🚨 *OVERDUE INVOICE ALERT*\n\nAn invoice has passed its payment due date and requires billing attention.\n\n*Invoice:* `{{ $json.invoice.invoiceNumber }}`\n*Vendor:* {{ $json.invoice.vendorName }}\n*Customer:* {{ $json.invoice.customerName }}\n*Description:* {{ $json.invoice.description }}\n*Amount Due:* `{{ $json.invoice.amountDue }} {{ $json.invoice.currency }}`\n*Invoice Date:* {{ $json.invoice.invoiceDate }}\n*Due Date:* {{ $json.invoice.dueDate }}\n*Status:* 🔴 *{{ $json.status.value }}*\n*Days Overdue:* {{ Math.abs($json.status.daysUntilDue) }} days\n\n⚠️ *Action Required*\n\nPlease verify the payment status and coordinate with the responsible payment owner for follow-up or escalation.\n\n*Invoice Reminder Assistant • Automated Billing Alert*\n",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        1504,
+        80
+      ],
+      "id": "fda310aa-0e2c-4a9c-a42a-a1a18b582775",
+      "name": "overdueSlackAlert",
+      "webhookId": "afe21543-7591-4ee3-b077-dd2219a13e00",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_SLACK_CREDENTIAL_ID",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status.value }}",
+                    "rightValue": "Paid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "fe0b3631-1b67-41ad-8712-1d6bb3ae3333"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Paid"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2965f982-f8eb-4b56-915f-db06c82e1eca",
+                    "leftValue": "={{ $json.status.value }}",
+                    "rightValue": "Upcoming",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Upcoming"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6267cf9a-8e24-4cb3-9a2f-25a9190e33be",
+                    "leftValue": "={{ $json.status.value }}",
+                    "rightValue": "Overdue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Overdue"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        -96
+      ],
+      "id": "42f57f98-aa6a-466f-b123-d62f879bc6a2",
+      "name": "routeStatus"
+    },
+    {
+      "parameters": {
+        "content": "# Received Invoice",
+        "height": 208,
+        "width": 224,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -32
+      ],
+      "id": "e1368b70-a810-4f55-a55a-ba941bfd9879",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "# Classify Invoice\n",
+        "height": 416,
+        "width": 560,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        64,
+        -96
+      ],
+      "id": "0abf28c5-571d-424c-9057-fa8f41256591",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "# Generate Response Messages\n",
+        "height": 352,
+        "width": 368,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        608,
+        -128
+      ],
+      "id": "4e6ccf3a-0980-481a-8ccd-115b3c636208",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "# Parse Response\n",
+        "height": 224,
+        "width": 224,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        976,
+        -128
+      ],
+      "id": "d5eaa5fa-70c5-4667-941d-ac053a3fe95f",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1h3_UxuvktklbkiabeMk8T5yuayoT6cvvIu736a1HMJ8",
+          "mode": "list",
+          "cachedResultName": "Data Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Invoice",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Invoice number": "={{ $json.invoice.invoiceNumber }}",
+            "Customer": "={{ $json.invoice.customerName }}",
+            "Vendor": "={{ $json.invoice.vendorName }}",
+            "Description": "={{ $json.invoice.description }}",
+            "Invoice Date": "={{ $json.invoice.invoiceDate }}",
+            "Due Date": "={{ $json.invoice.dueDate }}",
+            "Status": "={{ $json.status.value }}",
+            "Amount": "={{ $json.invoice.amountDue }} {{ $json.invoice.currency }}"
+          },
+          "matchingColumns": [
+            "Invoice number"
+          ],
+          "schema": [
+            {
+              "id": "Invoice number",
+              "displayName": "Invoice number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Vendor",
+              "displayName": "Vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer",
+              "displayName": "Customer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Amount",
+              "displayName": "Amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Invoice Date",
+              "displayName": "Invoice Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Due Date",
+              "displayName": "Due Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1040,
+        160
+      ],
+      "id": "86d1e51c-bf4a-4e7f-9a45-b280aa98fd2f",
+      "name": "logInvoice",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_CREDENTIAL_ID",
+          "name": "Google account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# Log Invoice",
+        "height": 208,
+        "width": 224,
+        "color": "#75721F"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        976,
+        96
+      ],
+      "id": "f7ad1292-1876-4100-81f5-45fd099e834c",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "# Data Routing",
+        "height": 224,
+        "width": 224
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -128
+      ],
+      "id": "92a1ae2b-2648-492e-b6ee-f9a1f1f1fea5",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "# Send Reminders",
+        "height": 496,
+        "width": 256,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        -256
+      ],
+      "id": "93ed2929-4ba8-4aab-b847-7b2004d9edef",
+      "name": "Sticky Note6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "invoiceEmail": {
+      "main": [
+        [
+          {
+            "node": "Classify Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "deepseek": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify Invoice",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "addLabel: Invoice": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Invoice": {
+      "main": [
+        [
+          {
+            "node": "addLabel: Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "non-invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "parseData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parseData": {
+      "main": [
+        [
+          {
+            "node": "routeStatus",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "logInvoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "routeStatus": {
+      "main": [
+        [
+          {
+            "node": "paidMessage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "sendReminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "sendReminder",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "overdueSlackAlert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "da2d0219-3c2e-40f6-baaf-0377038cb589",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a6e0c81e4fb59b429c00e146454cbad9c9647be357aed7cbe1314bb7130321d6"
+  },
+  "nodeGroups": [],
+  "id": "3DW028HQ9w7x2XsH",
+  "tags": []
+}
